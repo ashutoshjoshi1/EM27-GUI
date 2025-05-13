@@ -30,6 +30,8 @@ class MainWindow(QMainWindow):
         
         # Temperature controller
         self.temp_ctrl = TempController(parent=self)
+        self.temp_ctrl.port = "COM13"  # Set specific port
+        self.temp_ctrl.connect_controller()  # Auto-connect at startup
         ctrl_layout.addWidget(self.temp_ctrl.widget)
         
         # Motor control buttons in the middle
@@ -39,6 +41,8 @@ class MainWindow(QMainWindow):
         # Add motor controller
         self.motor_ctrl = MotorController(parent=self)
         self.motor_ctrl.status_signal.connect(self.status.showMessage)
+        # Store preferred port for motor
+        self.motor_ctrl.preferred_port = "COM5"
         motor_layout.addWidget(self.motor_ctrl.groupbox)
         
         # Add big Open/Close buttons
@@ -57,7 +61,7 @@ class MainWindow(QMainWindow):
         ctrl_layout.addLayout(motor_layout)
         
         # THP controller
-        self.thp_ctrl = THPController(parent=self)
+        self.thp_ctrl = THPController(port="COM10", parent=self)
         ctrl_layout.addWidget(self.thp_ctrl.groupbox)
         
         # Wire status signals
@@ -138,7 +142,7 @@ class MainWindow(QMainWindow):
             return
         
         # Set angle to exactly 90 degrees and move
-        self.motor_ctrl.angle_input.setText("90")
+        self.motor_ctrl.angle_input.setText("2250")
         self.motor_ctrl.move()
         self.status.showMessage("Opening - Moving to 90°")
         

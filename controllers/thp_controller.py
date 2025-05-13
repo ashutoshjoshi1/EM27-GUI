@@ -52,13 +52,9 @@ class THPController(QObject):
             self.status_signal.emit("THP sensor disconnected")
             return
 
-        # Auto-detect port if not specified
-        if not self.port:
-            self.port = self._find_thp_port()
-            if not self.port:
-                self.status_signal.emit("THP sensor not found")
-                return
-
+        # Use COM10 directly, no auto-detection
+        self.port = "COM10"
+        
         # Test connection
         test_data = read_thp_sensor_data(self.port)
         if test_data:
