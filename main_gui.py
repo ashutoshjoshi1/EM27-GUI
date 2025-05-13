@@ -1,14 +1,14 @@
-import sys, csv
+import sys
+import os
+import csv
+from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+                            QHBoxLayout, QStatusBar, QPushButton, QFileDialog)
+from PyQt5.QtCore import Qt, QTimer
 from datetime import datetime
-from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QFileDialog, QStatusBar
-)
-from PyQt5.QtCore import QTimer
 import pyqtgraph as pg
 
-from temp_controller import TempController
-from thp_controller import THPController
+from controllers.temp_controller import TempController
+from controllers.thp_controller import THPController
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -20,10 +20,14 @@ class MainWindow(QMainWindow):
         central.setLayout(main_layout)
         self.setCentralWidget(central)
 
+        # Status bar - create this before controllers
+        self.status = QStatusBar()
+        self.setStatusBar(self.status)
+
         # Controllers
         ctrl_layout = QHBoxLayout()
         self.temp_ctrl = TempController(parent=self)
-        self.thp_ctrl  = THPController(port="COM17", parent=self)
+        self.thp_ctrl = THPController(parent=self)  # No port specified, will auto-detect
         # wire status
         self.temp_ctrl.status_signal.connect(self.status.showMessage)
         self.thp_ctrl.status_signal.connect(self.status.showMessage)
@@ -55,10 +59,6 @@ class MainWindow(QMainWindow):
         self.stop_btn.clicked.connect(self.stop_logging)
         log_layout.addWidget(self.stop_btn)
         main_layout.addLayout(log_layout)
-
-        # Status bar
-        self.status = QStatusBar()
-        self.setStatusBar(self.status)
 
         # Data storage
         self.timestamps = []
