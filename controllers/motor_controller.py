@@ -53,6 +53,11 @@ class MotorController(QObject):
         self._driver = None
         self._connected = False
 
+    @property
+    def driver(self):
+        """Return the motor driver instance"""
+        return self._driver
+
     def _on_connect(self):
         self.connect_btn.setEnabled(False)
         
@@ -146,7 +151,23 @@ class MotorController(QObject):
         return self._connected
 
     def move(self):
-        self._on_move()
+        """Send move command to motor and return success status"""
+        try:
+            angle_text = self.angle_input.text().strip()
+            if not angle_text:
+                self.status_signal.emit("Enter an angle first")
+                return False
+            
+            angle = int(angle_text)
+            success, message = self._driver.move_to(angle)
+            self.status_signal.emit(message)
+            return success
+        except ValueError:
+            self.status_signal.emit("Invalid angle value")
+            return False
+        except Exception as e:
+            self.status_signal.emit(f"Move error: {str(e)}")
+            return False
 
     def connect(self):
         """Auto-connect to the motor using the preferred port"""

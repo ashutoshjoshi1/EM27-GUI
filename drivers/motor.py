@@ -167,3 +167,74 @@ class MotorDriver:
                 return False, f"⚠ No ACK from motor. Response: {resp_hex}"
         except Exception as e:
             return False, f"❌ Move failed: {e}"
+
+    def check_rain_status(self) -> (bool, str):
+        """
+        Reads register 213 (0x00D5) and checks bit 2 for rain status.
+        Returns (success, message) where success is True if read was successful
+        and message contains the rain status or error information.
+        """
+        try:
+            # Check if serial port is open
+            if not self.ser.is_open:
+                self.ser.open()
+            
+            # Build Modbus function 3 (Read Holding Registers) request
+            req = bytes([
+                SLAVE_ID, 0x03,  # Function: Read Holding Registers
+                0x00, 0xD5,      # Register address: 0x00D5 (213)
+                0x00, 0x01       # Number of registers: 1
+            ])
+            crc = modbus_crc16(req).to_bytes(2, 'little')
+            packet = req + crc
+            
+            # Clear buffers before sending
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
+            time.sleep(0.05)
+            
+            # Send request
+            self.ser.write(packet)
+            self.ser.flush()
+            time.sleep(0.1)  # Wait for response
+            
+            # Read response
+            resp = bytearray()
+            start_time = time.time()
+            while (time.time() - start_time) < 0.5:  # 500ms timeout
+                if self.ser.in_waiting:
+                    new_data = self.ser.read(self.ser.in_waiting)
+                    resp.extend(new_data)
+                    if len(resp) >= 5:  # Minimum expected response length
+                        break
+                time.sleep(0.01)
+            
+            # Debug output
+            #print(f"Rain status response: {resp.hex()}")
+            
+            # Check if response is valid
+            if len(resp) >= 5 and resp[0] == SLAVE_ID and resp[1] == 0x03:
+                # Based on the response format: [ID, FC, BYTE_COUNT, DATA_HI, DATA_LO, CRC_LO, CRC_HI]
+                # The register value is in the 4th and 5th bytes (index 3 and 4)
+                # For this specific controller, the rain status is in the second data byte (index 4)
+                reg_value_hi = resp[3] if len(resp) > 3 else 0
+                reg_value_lo = resp[4] if len(resp) > 4 else 0
+                
+                # Print debug info for both bytes
+                #print(f"Register value high byte: {reg_value_hi:08b} (binary), {reg_value_hi} (decimal)")
+                #print(f"Register value low byte: {reg_value_lo:08b} (binary), {reg_value_lo} (decimal)")
+                
+                # Based on the observed responses:
+                # 0103020000b844 - Not raining
+                # 0103020004b987 - Raining
+                # The difference is in the low byte (index 4), value 0x00 vs 0x04
+                # This suggests bit 2 (0-indexed) in the low byte indicates rain
+                is_raining = bool(reg_value_lo & (1 << 2))
+                
+                return True, f"Rain status: {'Raining' if is_raining else 'Not raining'}"
+            else:
+                resp_hex = resp.hex() if resp else ""
+                return False, f"Invalid response: {resp_hex}"
+                
+        except Exception as e:
+            return False, f"Error reading rain status: {e}"

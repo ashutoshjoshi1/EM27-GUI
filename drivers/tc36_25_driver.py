@@ -120,7 +120,7 @@ class TC36_25:
 # --------------------  Quick demo  -------------------------------------
 
 if __name__ == "__main__":
-    with TC36_25("COM16") as tc:
+    with TC36_25("COM2") as tc:
         tc.enable_computer_setpoint()   # one‑time per session
         tc.set_setpoint(10.00)          # °C
         tc.power(True)                  # enable output
