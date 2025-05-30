@@ -13,6 +13,13 @@ class THPController(QObject):
         self.port = port
         self.connected = False
         self.groupbox = QGroupBox("THP Sensor")
+        self.groupbox.setStyleSheet("""
+            QGroupBox   { color: white; }   /* the title */
+            QLabel      { color: white; }
+            QComboBox   { color: white; }
+            QLineEdit   { color: white; }
+            QPushButton { color: white; }
+        """)
         layout = QVBoxLayout()
 
         # Add connect button
@@ -53,7 +60,7 @@ class THPController(QObject):
             return
 
         # Use COM10 directly, no auto-detection
-        self.port = "COM16"
+        self.port = "COM7"
         
         # Test connection
         test_data = read_thp_sensor_data(self.port)

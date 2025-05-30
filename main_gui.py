@@ -64,7 +64,7 @@ class MainWindow(QMainWindow):
         sensor_layout.setSpacing(15)
         # Temperature card
         temp_card = QGroupBox()
-        temp_card.setFixedSize(160, 120)
+        temp_card.setFixedSize(160, 220)
         temp_card.setStyleSheet("QGroupBox { background-color:#4e6d94; border-radius:10px; color:white; }")
         tc_layout = QVBoxLayout(temp_card)
         lbl_t_title = QLabel("Temperature", alignment=Qt.AlignCenter)
@@ -80,7 +80,7 @@ class MainWindow(QMainWindow):
         sensor_layout.addWidget(temp_card)
         # Humidity card
         hum_card = QGroupBox()
-        hum_card.setFixedSize(160, 120)
+        hum_card.setFixedSize(160, 220)
         hum_card.setStyleSheet("QGroupBox { background-color:#4e6d94; border-radius:10px; color:white; }")
         hu_layout = QVBoxLayout(hum_card)
         lbl_h_title = QLabel("Humidity", alignment=Qt.AlignCenter)
@@ -96,7 +96,7 @@ class MainWindow(QMainWindow):
         sensor_layout.addWidget(hum_card)
         # Pressure card
         pres_card = QGroupBox()
-        pres_card.setFixedSize(160, 120)
+        pres_card.setFixedSize(160, 220)
         pres_card.setStyleSheet("QGroupBox { background-color:#4e6d94; border-radius:10px; color:white; }")
         pr_layout = QVBoxLayout(pres_card)
         lbl_p_title = QLabel("Pressure", alignment=Qt.AlignCenter)
@@ -190,6 +190,7 @@ class MainWindow(QMainWindow):
         tabs.addTab(pres_tab, "Pressure")
 
         plots_group = QGroupBox("Sensor Data (Last 24 Hours)")
+        plots_group.setStyleSheet("QGroupBox { background-color:#2c2c2c; border:1px solid #444; border-radius:10px; color:white; }")
         plots_layout = QVBoxLayout(plots_group)
         plots_layout.addWidget(tabs)
         main_layout.addWidget(plots_group)
@@ -200,7 +201,7 @@ class MainWindow(QMainWindow):
         self.update_timer.start(1000)
         self.rain_timer = QTimer(self)
         self.rain_timer.timeout.connect(self.check_rain_status)
-        self.rain_timer.start(10000)
+        self.rain_timer.start(1000)
 
     
         # Styling
@@ -289,25 +290,36 @@ class MainWindow(QMainWindow):
             self.rain_indicator.setText("Rain Status: Unknown (Motor disconnected)")
             self.rain_indicator.setStyleSheet("font-weight: bold; font-size: 16px; color: #CCCCCC;")
             return
+
         if not hasattr(self.motor_ctrl, 'driver') or self.motor_ctrl.driver is None:
             self.rain_indicator.setText("Rain Status: Unknown (Driver not initialized)")
             self.rain_indicator.setStyleSheet("font-weight: bold; font-size: 16px; color: #CCCCCC;")
             return
+
         try:
             success, message = self.motor_ctrl.driver.check_rain_status()
             if success and "Raining" in message:
+                # it’s raining → disable OPEN
                 self.rain_indicator.setText("Rain Status: RAINING")
                 self.rain_indicator.setStyleSheet("font-weight: bold; font-size: 16px; color: #FF5555;")
+                self.open_btn.setEnabled(False)
+
+                # optionally auto-close if already open
                 if self.current_position == 90:
                     self.status.showMessage("Auto-closing due to rain detection")
                     self.close_motor()
+
             else:
+                # not raining → re-enable OPEN
                 self.rain_indicator.setText("Rain Status: Not raining")
                 self.rain_indicator.setStyleSheet("font-weight: bold; font-size: 16px; color: #55FF55;")
+                self.open_btn.setEnabled(True)
+
         except Exception as e:
             self.rain_indicator.setText("Rain Status: Error checking")
             self.rain_indicator.setStyleSheet("font-weight: bold; font-size: 16px; color: #FFAA55;")
             self.status.showMessage(f"Rain check error: {e}")
+
 
     def update_data(self):
         now = datetime.now().timestamp()

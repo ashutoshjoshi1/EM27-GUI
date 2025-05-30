@@ -7,8 +7,31 @@ from PyQt5.QtWidgets import (
     QGroupBox, QHBoxLayout, QLabel,
     QComboBox, QPushButton, QLineEdit
 )
-from PyQt5.QtCore import QObject, pyqtSignal
-from drivers.motor import MotorDriver
+from PyQt5.QtCore    import QObject, pyqtSignal
+from PyQt5.QtGui     import QIntValidator, QValidator
+from drivers.motor   import MotorDriver
+
+class StrictIntValidator(QIntValidator):
+    """Validator that rejects any integer outside the given range outright."""
+    def __init__(self, minimum, maximum, parent=None):
+        super().__init__(parent)
+        self.setRange(minimum, maximum)
+
+    def validate(self, input_str, pos):
+        # allow empty or just “-” while typing
+        if input_str in ("", "-"):
+            return (QValidator.Intermediate, input_str, pos)
+        # must parse as integer
+        try:
+            val = int(input_str)
+        except ValueError:
+            return (QValidator.Invalid, input_str, pos)
+        # only accept in range
+        if self.bottom() <= val <= self.top():
+            return (QValidator.Acceptable, input_str, pos)
+        else:
+            return (QValidator.Invalid, input_str, pos)
+
 
 class MotorController(QObject):
     status_signal = pyqtSignal(str)
@@ -16,9 +39,16 @@ class MotorController(QObject):
     def __init__(self, parent=None):
         super().__init__(parent)
         
-        self.preferred_port = None  # Add this line to store preferred port
+        self.preferred_port = None
         
         self.groupbox = QGroupBox("Motor Control")
+        self.groupbox.setStyleSheet("""
+            QGroupBox   { color: white; }
+            QLabel      { color: white; }
+            QComboBox   { color: white; }
+            QLineEdit   { color: white; }
+            QPushButton { color: white; }
+        """)
         layout = QHBoxLayout(self.groupbox)
 
         # Port selector
@@ -41,7 +71,8 @@ class MotorController(QObject):
 
         # Angle input & Move button
         self.angle_input = QLineEdit()
-        self.angle_input.setPlaceholderText("Angle °")
+        self.angle_input.setPlaceholderText("Angle ° (−2300 … 0)")
+        self.angle_input.setValidator(StrictIntValidator(-2300, 0, self))
         layout.addWidget(self.angle_input)
 
         self.move_btn = QPushButton("Move")
@@ -55,18 +86,11 @@ class MotorController(QObject):
 
     @property
     def driver(self):
-        """Return the motor driver instance"""
         return self._driver
-
+    
     def _on_connect(self):
         self.connect_btn.setEnabled(False)
-        
-        # Use preferred port if set, otherwise use selected port
-        if self.preferred_port:
-            port = self.preferred_port
-        else:
-            port = self.port_combo.currentText().strip()
-        
+        port = self.preferred_port or self.port_combo.currentText().strip()
         baud = int(self.baud_combo.currentText())
         if not port:
             self.status_signal.emit("Select a COM port first.")
@@ -74,28 +98,21 @@ class MotorController(QObject):
             return
 
         try:
-            # First close any existing connection
             if self._driver and hasattr(self._driver, 'ser') and self._driver.ser.is_open:
                 self._driver.ser.close()
-            
-            # Create new serial connection with explicit timeout
+
             ser = serial.Serial(port, baudrate=baud, timeout=1.0)
-            
-            # Ensure port is open
             if not ser.is_open:
                 ser.open()
-            
-            # Configure RS-485 mode based on platform
+
             if hasattr(ser, 'rs485_mode'):
                 if platform.system() == 'Windows':
-                    # Windows doesn't support delay parameters
                     ser.rs485_mode = RS485Settings(
                         rts_level_for_tx=True,
                         rts_level_for_rx=False,
                         loopback=False
                     )
                 else:
-                    # Linux/Unix supports delay parameters
                     ser.rs485_mode = RS485Settings(
                         rts_level_for_tx=True,
                         rts_level_for_rx=False,
@@ -103,34 +120,30 @@ class MotorController(QObject):
                         delay_before_rx=0.005
                     )
             else:
-                # Manual RTS control for RS485 half-duplex
                 ser.setRTS(False)
-            
-            # Clear buffers before starting communication
+
             ser.reset_input_buffer()
             ser.reset_output_buffer()
-            
-            # Create driver with configured serial port
+
             self._driver = MotorDriver(ser)
-            
-            # Test connection with a simple command - accept any of our known response patterns
-            try:
-                test_ok, test_msg = self._driver.move_to(0)  # Try to move to 0 degrees as a test
-                
-                # Accept the test even if it failed but returned one of our known response patterns
-                if not test_ok and not any(pattern in test_msg for pattern in ["7e25", "0190044dc3"]):
-                    raise Exception(f"Motor test failed: {test_msg}")
-                
-                self._connected = True
-                self.move_btn.setEnabled(True)
-                self.status_signal.emit(f"✔ Connected on {port} @ {baud} baud")
-            except Exception as e:
-                if 'ser' in locals() and ser.is_open:
-                    ser.close()
-                self._driver = None
-                self._connected = False
-                self.move_btn.setEnabled(False)
-                self.status_signal.emit(f"✖ Connect failed: {e}")
+
+            # test move-to-zero
+            test_ok, test_msg = self._driver.move_to(0)
+            if not test_ok and not any(p in test_msg for p in ["7e25", "0190044dc3"]):
+                raise Exception(f"Motor test failed: {test_msg}")
+
+            self._connected = True
+            self.move_btn.setEnabled(True)
+            self.status_signal.emit(f"✔ Connected on {port} @ {baud} baud")
+
+        except Exception as e:
+            if 'ser' in locals() and ser.is_open:
+                ser.close()
+            self._driver = None
+            self._connected = False
+            self.move_btn.setEnabled(False)
+            self.status_signal.emit(f"✖ Connect failed: {e}")
+
         finally:
             self.connect_btn.setEnabled(True)
 
@@ -151,14 +164,12 @@ class MotorController(QObject):
         return self._connected
 
     def move(self):
-        """Send move command to motor and return success status"""
         try:
-            angle_text = self.angle_input.text().strip()
-            if not angle_text:
+            txt = self.angle_input.text().strip()
+            if not txt:
                 self.status_signal.emit("Enter an angle first")
                 return False
-            
-            angle = int(angle_text)
+            angle = int(txt)
             success, message = self._driver.move_to(angle)
             self.status_signal.emit(message)
             return success
@@ -166,19 +177,14 @@ class MotorController(QObject):
             self.status_signal.emit("Invalid angle value")
             return False
         except Exception as e:
-            self.status_signal.emit(f"Move error: {str(e)}")
+            self.status_signal.emit(f"Move error: {e}")
             return False
 
     def connect(self):
-        """Auto-connect to the motor using the preferred port"""
         if self._connected:
-            return  # Already connected
-        
+            return
         if self.preferred_port:
-            # Set the combo box to match the preferred port if possible
-            index = self.port_combo.findText(self.preferred_port)
-            if index >= 0:
-                self.port_combo.setCurrentIndex(index)
-        
-            # Connect using the preferred port
+            idx = self.port_combo.findText(self.preferred_port)
+            if idx >= 0:
+                self.port_combo.setCurrentIndex(idx)
             self._on_connect()

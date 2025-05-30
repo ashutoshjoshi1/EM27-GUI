@@ -15,6 +15,12 @@ class TempController(QObject):
         
         # Group box for Temperature Controller
         self.widget = QGroupBox("Temperature Controller")
+        self.widget.setStyleSheet("""
+            QGroupBox { color: white; }      /* title of the box */
+            QLabel    { color: white; }      /* all labels */
+            QLineEdit { color: white; }      /* the input text */
+            QPushButton { color: white; }    /* your buttons */
+        """)
         layout = QGridLayout()
 
         # Add connect button
