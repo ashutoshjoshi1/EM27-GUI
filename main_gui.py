@@ -13,6 +13,10 @@ from controllers.temp_controller import TempController
 from controllers.thp_controller import THPController
 from controllers.motor_controller import MotorController
 
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -203,6 +207,15 @@ class MainWindow(QMainWindow):
         self.rain_timer.timeout.connect(self.check_rain_status)
         self.rain_timer.start(1000)
 
+        self.was_raining = False
+        self.already_sent_mail = False
+
+        # ── NEW: put your SMTP credentials here ─────────────────
+        self.sender_email    = "alerts@sciglob.com"
+        self.receiver_email = ["omar@sciglob.com", "ajoshi@sciglob.com", "jgallegos@sciglob.com"]
+        self.sender_password = "tpnu xyav aybr wguk"
+        self.smtp_server     = "smtp.gmail.com"
+        self.smtp_port       = 587  # or 465 if you use SSL
     
         # Styling
         self.setStyleSheet("""
@@ -284,42 +297,83 @@ class MainWindow(QMainWindow):
         self.current_position = 0
         self.status.showMessage("Closing - Moving to 0°")
 
+    def send_rain_email(self):
+        """Send a single 'it's raining' email."""
+        msg = MIMEMultipart()
+        msg["From"]    = self.sender_email
+        msg["To"]      = self.receiver_email
+        msg["Subject"] = "EM-27 Weather Update"
+
+        body = (
+            "Hello,\n\n"
+            "It is raining outside. The head of EM-27 has been closed for the duration of the rain.\n\n"
+            "Regards,\n"
+            "EM-27 Monitoring System,\n"
+            "SciGlob Instruments & Services, LLC"
+        )
+        msg.attach(MIMEText(body, "plain"))
+
+        try:
+            # If your server uses STARTTLS:
+            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+            server.ehlo()
+            server.starttls()
+            server.login(self.sender_email, self.sender_password)
+            server.send_message(msg)
+            server.quit()
+            self.status.showMessage("Rain email sent")
+        except Exception as e:
+            self.status.showMessage(f"Failed to send rain email: {e}")
+
     def check_rain_status(self):
-        """Check rain status from motor controller"""
+        """Check rain status from motor controller, auto‐open or email on transitions."""
         if not self.motor_ctrl.is_connected():
             self.rain_indicator.setText("Rain Status: Unknown (Motor disconnected)")
             self.rain_indicator.setStyleSheet("font-weight: bold; font-size: 16px; color: #CCCCCC;")
             return
 
-        if not hasattr(self.motor_ctrl, 'driver') or self.motor_ctrl.driver is None:
-            self.rain_indicator.setText("Rain Status: Unknown (Driver not initialized)")
-            self.rain_indicator.setStyleSheet("font-weight: bold; font-size: 16px; color: #CCCCCC;")
-            return
-
         try:
             success, message = self.motor_ctrl.driver.check_rain_status()
-            if success and "Raining" in message:
-                # it’s raining → disable OPEN
-                self.rain_indicator.setText("Rain Status: RAINING")
-                self.rain_indicator.setStyleSheet("font-weight: bold; font-size: 16px; color: #FF5555;")
-                self.open_btn.setEnabled(False)
-
-                # optionally auto-close if already open
-                if self.current_position == 90:
-                    self.status.showMessage("Auto-closing due to rain detection")
-                    self.close_motor()
-
-            else:
-                # not raining → re-enable OPEN
-                self.rain_indicator.setText("Rain Status: Not raining")
-                self.rain_indicator.setStyleSheet("font-weight: bold; font-size: 16px; color: #55FF55;")
-                self.open_btn.setEnabled(True)
-
+            raining_now = success and "Raining" in message
         except Exception as e:
             self.rain_indicator.setText("Rain Status: Error checking")
             self.rain_indicator.setStyleSheet("font-weight: bold; font-size: 16px; color: #FFAA55;")
             self.status.showMessage(f"Rain check error: {e}")
+            return
 
+        if raining_now:
+            # ── Raining ────────────────────────────────────────────
+            self.rain_indicator.setText("Rain Status: RAINING")
+            self.rain_indicator.setStyleSheet("font-weight: bold; font-size: 16px; color: #FF5555;")
+            self.open_btn.setEnabled(False)
+
+            # auto‐close if open
+            if self.current_position == 90:
+                self.status.showMessage("Auto-closing due to rain detection")
+                self.close_motor()
+
+            # send one email per rain event
+            if not self.already_sent_mail:
+                self.send_rain_email()
+                self.already_sent_mail = True
+
+            # remember that we're raining
+            self.was_raining = True
+
+        else:
+            # ── Not Raining ────────────────────────────────────────
+            self.rain_indicator.setText("Rain Status: Not raining")
+            self.rain_indicator.setStyleSheet("font-weight: bold; font-size: 16px; color: #55FF55;")
+            self.open_btn.setEnabled(True)
+
+            # on transition R → ☀, auto‐open
+            if self.was_raining:
+                self.status.showMessage("Rain stopped — auto-opening motor")
+                self.open_motor()
+
+            # reset flags
+            self.was_raining = False
+            self.already_sent_mail = False
 
     def update_data(self):
         now = datetime.now().timestamp()
