@@ -233,21 +233,36 @@ class MainWindow(QMainWindow):
             }
         """)
 
-    def connect_camera(self):
-        """Connect to the camera and start the video feed"""
-        try:
-            self.camera_feed = cv2.VideoCapture(0)
-            if not self.camera_feed.isOpened():
-                self.status.showMessage("Failed to open camera")
-                return
-            self.camera_timer = QTimer(self)
-            self.camera_timer.timeout.connect(self.update_camera_feed)
-            self.camera_timer.start(33)
-            self.camera_connect_btn.setEnabled(False)
-            self.camera_disconnect_btn.setEnabled(True)
-            self.status.showMessage("Camera connected")
-        except Exception as e:
-            self.status.showMessage(f"Camera error: {e}")
+    def update_camera_feed(self):
+        """Update the camera feed display (rotated + adjusted)."""
+        if not getattr(self, 'camera_feed', None):
+            return
+
+        ret, frame = self.camera_feed.read()
+        if not ret:
+            self.status.showMessage("Failed to capture frame")
+            return
+
+        # 1. Rotate 90° anti-clockwise
+        frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+        # 2. Adjust contrast and brightness
+        #    Alpha: contrast factor (1.0 = no change, <1 = lower, >1 = higher)
+        #    Beta:  brightness offset (-100 to +100)
+        alpha = 0.8   # decrease contrast to 80%
+        beta  = -30   # decrease brightness
+        frame = cv2.convertScaleAbs(frame, alpha=alpha, beta=beta)
+
+        # Convert for Qt
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb.shape
+        image = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(image).scaled(
+            self.camera_label.width(), self.camera_label.height(),
+            Qt.KeepAspectRatio, Qt.SmoothTransformation
+        )
+        self.camera_label.setPixmap(pixmap)
+
 
     def disconnect_camera(self):
         """Disconnect from the camera"""
