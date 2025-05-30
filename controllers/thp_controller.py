@@ -53,7 +53,7 @@ class THPController(QObject):
             return
 
         # Use COM10 directly, no auto-detection
-        self.port = "COM10"
+        self.port = "COM16"
         
         # Test connection
         test_data = read_thp_sensor_data(self.port)
