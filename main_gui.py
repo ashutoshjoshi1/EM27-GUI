@@ -216,6 +216,22 @@ class MainWindow(QMainWindow):
         self.sender_password = "tpnu xyav aybr wguk"
         self.smtp_server     = "smtp.gmail.com"
         self.smtp_port       = 587  # or 465 if you use SSL
+
+       
+        self.connect_camera()
+
+
+        try:
+            success, message = self.motor_ctrl.driver.check_rain_status()
+            if success and "Raining" in message:
+                self.status.showMessage("Startup: It's raining → keeping head closed")
+                self.close_motor()
+            else:
+                self.status.showMessage("Startup: Not raining → auto-opening head")
+                self.open_motor()
+        except Exception as e:
+            self.status.showMessage(f"Startup rain check failed: {e}")
+
     
         # Styling
         self.setStyleSheet("""
@@ -234,18 +250,29 @@ class MainWindow(QMainWindow):
         """)
 
     def connect_camera(self):
-        """Connect to the camera and start the video feed"""
+        """Connect to the camera, start the video feed, and tweak exposure."""
         try:
             self.camera_feed = cv2.VideoCapture(0)
             if not self.camera_feed.isOpened():
                 self.status.showMessage("Failed to open camera")
                 return
+
+            # ── Disable auto‐exposure (backend‐dependent) ───────────────
+            # On many systems: 0.25 = manual mode, 0.75 = auto
+            self.camera_feed.set(cv2.CAP_PROP_AUTO_EXPOSURE, 0.25)
+
+            # ── Lower the exposure value ───────────────────────────────
+            # The exact range/value is camera‐dependent; try values like -6, -8, etc.
+            self.camera_feed.set(cv2.CAP_PROP_EXPOSURE, -6)
+
+            # ── Then start your timer as before ────────────────────────
             self.camera_timer = QTimer(self)
             self.camera_timer.timeout.connect(self.update_camera_feed)
             self.camera_timer.start(33)
+
             self.camera_connect_btn.setEnabled(False)
             self.camera_disconnect_btn.setEnabled(True)
-            self.status.showMessage("Camera connected")
+            self.status.showMessage("Camera connected (exposure adjusted)")
         except Exception as e:
             self.status.showMessage(f"Camera error: {e}")
 
@@ -314,7 +341,7 @@ class MainWindow(QMainWindow):
         """Send a single 'it's raining' email."""
         msg = MIMEMultipart()
         msg["From"]    = self.sender_email
-        msg["To"]      = self.receiver_email
+        msg["To"]      = ", ".join(self.receiver_email)
         msg["Subject"] = "EM-27 Weather Update"
 
         body = (
