@@ -46,7 +46,7 @@ class TempController(QObject):
         # Get port from config if available
         self.port = None
         if parent is not None and hasattr(parent, 'config'):
-            self.port = parent.config.get("temp_controller")
+            self.port = parent.config.get("com_ports", {}).get("temp_controller")
             
         # Start with auto-connect if port is specified
         if self.port:

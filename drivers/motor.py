@@ -2,6 +2,8 @@
 
 import time
 import serial
+import os
+from datetime import datetime
 from PyQt5.QtCore import QThread, pyqtSignal
 
 # ── Protocol constants ────────────────────────────────────────────────────────
@@ -75,6 +77,23 @@ class MotorConnectThread(QThread):
 
         self.result_signal.emit(None, None, "✖ No motor response at any baud rate.")
 
+# ── Helper function to log motor responses ─────────────────────────────────
+def log_motor_response(command, angle, response, is_retry=False):
+    """Log motor responses to a file for debugging"""
+    log_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    log_file = os.path.join(log_dir, "motor_responses.log")
+    
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    retry_str = " [RETRY]" if is_retry else ""
+    log_entry = f"{timestamp} | {command} | Angle: {angle}° | Response: {response}{retry_str}\n"
+    
+    try:
+        with open(log_file, 'a') as f:
+            f.write(log_entry)
+    except Exception as e:
+        print(f"Failed to log motor response: {e}")
+
 # ── High‐level driver ───────────────────────────────────────────────────────
 class MotorDriver:
     """
@@ -86,14 +105,14 @@ class MotorDriver:
     def move_to(self, angle: int) -> (bool, str):
         """
         Sends a 0x10 Write Multiple Registers command of exactly
-        18 registers (36 bytes) starting at 0x0058, padded to length.
+        16 registers (32 bytes) starting at 0x0058.
         """
         try:
             # Check if serial port is open
             if not self.ser.is_open:
                 self.ser.open()
                 
-            # 1) Build the "real" 18-reg payload (we only use some of it, the rest is zero)
+            # 1) Build the "real" payload
             angle_b = angle.to_bytes(4, 'big', signed=True)
             speed_b = TRACKER_SPEED.to_bytes(4, 'big', signed=True)
             mid_b   = bytes([0x00,0x0F,0x1F,0x40, 0x00,0x0F,0x1F,0x40])
@@ -101,18 +120,14 @@ class MotorDriver:
             end_b   = bytes([0x00,0x00,0x00,0x01])
 
             payload = bytes([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01]) + angle_b + speed_b + mid_b + curr_b + end_b
-            # # pad out to 36 bytes total
-            # pad_len = 36 - len(payload)
-            # if pad_len > 0:
-            #     payload += bytes(pad_len)
 
-            # 2) Use the original fixed header: 0x12 regs, 0x24 data bytes
+            # 2) Use the original fixed header
             header = bytes([
                 SLAVE_ID,       # Unit ID
                 0x10,           # Function: Write Multiple Registers
                 0x00, 0x58,     # Start addr = 0x0058
-                0x00, 0x10,     # Register count = 18 (0x0012)
-                0x20            # Byte count    = 36 (0x24)
+                0x00, 0x10,     # Register count = 16 (0x0010)
+                0x20            # Byte count    = 32 (0x20)
             ])
 
             packet = header + payload
@@ -122,43 +137,43 @@ class MotorDriver:
             # flush & settle
             self.ser.reset_input_buffer()
             self.ser.reset_output_buffer()
-            time.sleep(0.05)  # Increased delay
+            time.sleep(0.05)
 
             # If using RTS for RS485 direction control, manually toggle it
             if not hasattr(self.ser, 'rs485_mode'):
-                self.ser.setRTS(True)  # Set RTS before transmitting
-                time.sleep(0.01)       # Small delay
+                self.ser.setRTS(True)
+                time.sleep(0.01)
 
             # send & wait
             self.ser.write(full)
-            # self.ser.flush()
             
             # If using RTS for RS485 direction control, manually toggle it
             if not hasattr(self.ser, 'rs485_mode'):
-                time.sleep(0.01)       # Small delay
-                self.ser.setRTS(False) # Clear RTS after transmitting
+                time.sleep(0.01)
+                self.ser.setRTS(False)
             
-            time.sleep(0.1)  # Increased delay for response
+            time.sleep(0.1)
 
             # Read with timeout handling
             start_time = time.time()
             resp = bytearray()
-            while (time.time() - start_time) < 0.5:  # 500ms timeout
+            while (time.time() - start_time) < 0.5:
                 if self.ser.in_waiting:
                     new_data = self.ser.read(self.ser.in_waiting)
                     if new_data:
                         resp.extend(new_data)
-                        if len(resp) >= 8:  # Expected response length
+                        if len(resp) >= 8:
                             break
                 time.sleep(0.01)
 
             # Accept various response patterns as valid
             resp_hex = resp.hex() if resp else ""
             
-            # Check for known valid response patterns:
-            # 1. Standard Modbus response (starts with slave ID and function code 0x10)
-            # 2. Special 7e25 pattern seen on some controllers
-            # 3. The new 0190044dc3 pattern
+            # Log response for debugging
+            print(f"Motor move_to response: {resp_hex} (angle: {angle})")
+            log_motor_response("move_to", angle, resp_hex)
+            
+            # Check for known valid response patterns
             if (len(resp) >= 3 and resp[0] == SLAVE_ID and resp[1] == 0x10) or \
                resp_hex.startswith('7e25') or \
                resp_hex.startswith('0190044dc3'):
@@ -167,6 +182,123 @@ class MotorDriver:
                 return False, f"⚠ No ACK from motor. Response: {resp_hex}"
         except Exception as e:
             return False, f"❌ Move failed: {e}"
+
+    def clear_alarm(self) -> bool:
+        """
+        Clear alarm on the motor driver. 
+        Returns True if successful, False otherwise.
+        """
+        try:
+            if not self.ser.is_open:
+                self.ser.open()
+            
+            # Build Modbus function 5 (Write Single Coil) request to clear alarm
+            # Common alarm clear address is 0x0801 (Alarm Reset)
+            req = bytes([
+                SLAVE_ID, 0x05,  # Function: Write Single Coil
+                0x08, 0x01,      # Address: 0x0801 (Alarm Reset)
+                0xFF, 0x00       # Value: ON (0xFF00) to clear alarm
+            ])
+            crc = modbus_crc16(req).to_bytes(2, 'little')
+            packet = req + crc
+            
+            # Clear buffers before sending
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
+            time.sleep(0.05)
+            
+            # Send request
+            self.ser.write(packet)
+            self.ser.flush()
+            time.sleep(0.1)
+            
+            # Read response
+            resp = self.ser.read(8)
+            if len(resp) >= 4:
+                return True
+            return False
+        except Exception as e:
+            print(f"Clear alarm failed: {e}")
+            return False
+
+    def stop(self) -> bool:
+        """
+        Send stop command to halt motion gracefully.
+        Returns True if successful, False otherwise.
+        """
+        try:
+            if not self.ser.is_open:
+                self.ser.open()
+            
+            # Build Modbus stop command - typically function 6 (Write Single Register)
+            # Use register 0x0088 (Velocity Command) with value 0
+            req = bytes([
+                SLAVE_ID, 0x06,  # Function: Write Single Register
+                0x00, 0x88,      # Address: 0x0088 (Velocity Command)
+                0x00, 0x00       # Value: 0 (stop)
+            ])
+            crc = modbus_crc16(req).to_bytes(2, 'little')
+            packet = req + crc
+            
+            # Clear buffers before sending
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
+            time.sleep(0.05)
+            
+            # Send request
+            self.ser.write(packet)
+            self.ser.flush()
+            time.sleep(0.1)
+            
+            # Read response
+            resp = self.ser.read(8)
+            if len(resp) >= 4:
+                return True
+            return False
+        except Exception as e:
+            print(f"Stop command failed: {e}")
+            return False
+
+    def is_busy(self) -> bool:
+        """
+        Check if motor is currently moving.
+        Returns True if busy, False if idle.
+        """
+        try:
+            if not self.ser.is_open:
+                return False
+            
+            # Build Modbus function 3 (Read Holding Registers) request
+            # Read register 0x0074 (Operating Status)
+            req = bytes([
+                SLAVE_ID, 0x03,  # Function: Read Holding Registers
+                0x00, 0x74,      # Address: 0x0074 (Operating Status)
+                0x00, 0x01       # Number of registers: 1
+            ])
+            crc = modbus_crc16(req).to_bytes(2, 'little')
+            packet = req + crc
+            
+            # Clear buffers before sending
+            self.ser.reset_input_buffer()
+            self.ser.reset_output_buffer()
+            time.sleep(0.05)
+            
+            # Send request
+            self.ser.write(packet)
+            self.ser.flush()
+            time.sleep(0.1)
+            
+            # Read response
+            resp = self.ser.read(8)
+            if len(resp) >= 5 and resp[0] == SLAVE_ID and resp[1] == 0x03:
+                # Bit 0 typically indicates motion status
+                status_value = (resp[3] << 8) | resp[4]
+                is_moving = bool(status_value & 0x01)
+                return is_moving
+            return False
+        except Exception as e:
+            print(f"Check busy failed: {e}")
+            return False
 
     def check_rain_status(self) -> (bool, str):
         """
