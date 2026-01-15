@@ -99,10 +99,10 @@ class MainWindow(QMainWindow):
         self.smtp_server = "smtp.gmail.com"
         self.smtp_port = 587
         
-        # Create tabs
+        # Create tabs (in display order)
+        self._create_motor_tab()
         self._create_dashboard_tab()
         self._create_controllers_tab()
-        self._create_motor_tab()
         
         # Setup timers
         self.update_timer = QTimer(self)
@@ -385,7 +385,7 @@ class MainWindow(QMainWindow):
         plots_layout.addWidget(tabs)
         dashboard_layout.addWidget(plots_group)
         
-        self.main_tabs.addTab(dashboard, "📊 Dashboard")
+        self.main_tabs.addTab(dashboard, "🌡️ Temp Monitor")
     
     def _create_controllers_tab(self):
         """Create the controllers tab"""
@@ -522,7 +522,7 @@ class MainWindow(QMainWindow):
         self.thp_ctrl = THPController(port=thp_port, parent=self)
         self.thp_ctrl.status_signal.connect(self.status.showMessage)
         
-        self.main_tabs.addTab(controllers, "⚙️ Controllers")
+        self.main_tabs.addTab(controllers, "🎛️ Temp Controller")
     
     def _create_motor_tab(self):
         """Create the motor control tab"""
@@ -625,7 +625,7 @@ class MainWindow(QMainWindow):
         motor_layout.addWidget(motor_group)
         motor_layout.addStretch()
         
-        self.main_tabs.addTab(motor_widget, "🎯 Motor Control")
+        self.main_tabs.addTab(motor_widget, "🎯 Lid")
     
     def load_config(self):
         """Load configuration from config.json file"""

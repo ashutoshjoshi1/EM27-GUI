@@ -333,14 +333,43 @@ class RangeSlider(QWidget):
         # High handle
         painter.drawEllipse(QPointF(hx, y), self.handle_r, self.handle_r)
         
-        # Labels
-        font = QFont("Segoe UI", 9)
+        # Labels with background for visibility
+        font = QFont("Segoe UI", 10, QFont.Bold)
         painter.setFont(font)
-        painter.setPen(QPen(QColor("#333")))
-        painter.drawText(int(lx) - 20, int(y) - 18, 40, 14, 
-                        Qt.AlignCenter, f"{self.low_val:.1f}°C")
-        painter.drawText(int(hx) - 20, int(y) - 18, 40, 14, 
-                        Qt.AlignCenter, f"{self.high_val:.1f}°C")
+        
+        # Low value label
+        low_text = f"{self.low_val:.1f}°C"
+        low_rect_x = int(lx) - 30
+        low_rect_y = int(y) - 35
+        low_rect_w = 60
+        low_rect_h = 22
+        
+        # Draw background for low label
+        painter.setBrush(QBrush(QColor("#2a3441")))
+        painter.setPen(QPen(QColor("#4a5568"), 2))
+        painter.drawRoundedRect(low_rect_x, low_rect_y, low_rect_w, low_rect_h, 5, 5)
+        
+        # Draw low label text
+        painter.setPen(QPen(QColor("#4ECDC4")))
+        painter.drawText(low_rect_x, low_rect_y, low_rect_w, low_rect_h, 
+                        Qt.AlignCenter, low_text)
+        
+        # High value label
+        high_text = f"{self.high_val:.1f}°C"
+        high_rect_x = int(hx) - 30
+        high_rect_y = int(y) - 35
+        high_rect_w = 60
+        high_rect_h = 22
+        
+        # Draw background for high label
+        painter.setBrush(QBrush(QColor("#2a3441")))
+        painter.setPen(QPen(QColor("#4a5568"), 2))
+        painter.drawRoundedRect(high_rect_x, high_rect_y, high_rect_w, high_rect_h, 5, 5)
+        
+        # Draw high label text
+        painter.setPen(QPen(QColor("#FF6B6B")))
+        painter.drawText(high_rect_x, high_rect_y, high_rect_w, high_rect_h, 
+                        Qt.AlignCenter, high_text)
     
     def _val_to_x(self, v):
         v = max(self.min_val, min(self.max_val, v))
