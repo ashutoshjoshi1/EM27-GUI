@@ -131,15 +131,28 @@ class MainWindow(QMainWindow):
             }
             QLabel {
                 color: #e0e8f0;
+                background-color: transparent;
             }
             QPushButton {
                 color: white;
+                background-color: #3a4553;
+                border: 2px solid #4a5568;
+                border-radius: 8px;
+                padding: 8px 16px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #4a5568;
+                border-color: #5a6678;
+            }
+            QPushButton:pressed {
+                background-color: #2a3441;
             }
             QComboBox, QLineEdit {
                 background-color: #252b38;
                 border: 2px solid #3a4553;
-                border-radius: 6px;
-                padding: 6px;
+                border-radius: 8px;
+                padding: 8px;
                 color: white;
                 selection-background-color: #667eea;
             }
@@ -157,6 +170,25 @@ class MainWindow(QMainWindow):
                 selection-background-color: #667eea;
                 border: 2px solid #3a4553;
                 border-radius: 6px;
+            }
+            QCheckBox {
+                background-color: transparent;
+                color: #e0e8f0;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 20px;
+                height: 20px;
+                border: 2px solid #4a5568;
+                border-radius: 5px;
+                background-color: #252b38;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #4CAF50;
+                border-color: #4CAF50;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #5a6678;
             }
         """)
     
@@ -358,9 +390,14 @@ class MainWindow(QMainWindow):
     def _create_controllers_tab(self):
         """Create the controllers tab"""
         controllers = QWidget()
-        controllers_layout = QHBoxLayout(controllers)
-        controllers_layout.setSpacing(25)
-        controllers_layout.setContentsMargins(30, 30, 30, 30)
+        controllers_main_layout = QVBoxLayout(controllers)
+        controllers_main_layout.setSpacing(30)
+        controllers_main_layout.setContentsMargins(50, 50, 50, 50)
+        
+        # Create horizontal layout for controllers
+        controllers_layout = QHBoxLayout()
+        controllers_layout.setSpacing(40)
+        controllers_layout.addStretch()
         
         # Temperature Controller (Left)
         self.temp_ctrl = TempController(parent=self)
@@ -368,79 +405,122 @@ class MainWindow(QMainWindow):
         if temp_port:
             self.temp_ctrl.port = temp_port
         self.temp_ctrl.connect_controller()
-        self.temp_ctrl.widget.setMinimumWidth(350)
-        self.temp_ctrl.widget.setMaximumWidth(450)
+        self.temp_ctrl.widget.setMinimumWidth(450)
+        self.temp_ctrl.widget.setMaximumWidth(550)
         self.temp_ctrl.widget.setStyleSheet("""
             QGroupBox { 
-                background-color: #1e2430;
-                border: 2px solid #3a4553;
-                border-radius: 15px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1e2430, stop:1 #151b26);
+                border: 3px solid #4a5568;
+                border-radius: 18px;
                 color: white;
-                padding: 20px;
+                padding: 25px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 subcontrol-position: top center;
-                padding: 0 12px;
-                color: #a0a8b8;
+                padding: 0 15px;
+                color: #e0e8f0;
                 font-weight: bold;
-                font-size: 15px;
+                font-size: 16px;
+                background-color: transparent;
+            }
+            QLabel {
+                background-color: transparent;
+                color: #e0e8f0;
+            }
+            QPushButton {
+                background-color: #3a4553;
+                border: 2px solid #4a5568;
+                border-radius: 8px;
+                padding: 8px 16px;
+                color: white;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #4a5568;
+                border-color: #5a6678;
+            }
+            QPushButton:pressed {
+                background-color: #2a3441;
             }
         """)
         controllers_layout.addWidget(self.temp_ctrl.widget)
         self.temp_ctrl.status_signal.connect(self.status.showMessage)
-        
-        # THP Controller (Middle)
-        thp_port = self.config.get("com_ports", {}).get("thp_controller", "")
-        self.thp_ctrl = THPController(port=thp_port, parent=self)
-        self.thp_ctrl.groupbox.setMinimumWidth(350)
-        self.thp_ctrl.groupbox.setMaximumWidth(450)
-        self.thp_ctrl.groupbox.setStyleSheet("""
-            QGroupBox { 
-                background-color: #1e2430;
-                border: 2px solid #3a4553;
-                border-radius: 15px;
-                color: white;
-                padding: 20px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top center;
-                padding: 0 12px;
-                color: #a0a8b8;
-                font-weight: bold;
-                font-size: 15px;
-            }
-        """)
-        controllers_layout.addWidget(self.thp_ctrl.groupbox)
-        self.thp_ctrl.status_signal.connect(self.status.showMessage)
         
         # AC Controller (Right)
         self.ac_ctrl = ACController(parent=self)
         ac_port = self.config.get("com_ports", {}).get("ac_controller", "")
         if ac_port:
             self.ac_ctrl.port = ac_port
-        self.ac_ctrl.widget.setMinimumWidth(400)
-        self.ac_ctrl.widget.setMaximumWidth(550)
+        self.ac_ctrl.widget.setMinimumWidth(500)
+        self.ac_ctrl.widget.setMaximumWidth(650)
         self.ac_ctrl.widget.setStyleSheet("""
             QGroupBox { 
-                background-color: #1e2430;
-                border: 2px solid #3a4553;
-                border-radius: 15px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #1e2430, stop:1 #151b26);
+                border: 3px solid #4a5568;
+                border-radius: 18px;
                 color: white;
-                padding: 20px;
+                padding: 25px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 subcontrol-position: top center;
-                padding: 0 12px;
-                color: #a0a8b8;
+                padding: 0 15px;
+                color: #e0e8f0;
                 font-weight: bold;
-                font-size: 15px;
+                font-size: 16px;
+                background-color: transparent;
+            }
+            QLabel {
+                background-color: transparent;
+                color: #e0e8f0;
+            }
+            QPushButton {
+                background-color: #3a4553;
+                border: 2px solid #4a5568;
+                border-radius: 8px;
+                padding: 10px 18px;
+                color: white;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #4a5568;
+                border-color: #5a6678;
+            }
+            QPushButton:pressed {
+                background-color: #2a3441;
+            }
+            QCheckBox {
+                background-color: transparent;
+                color: #e0e8f0;
+                spacing: 8px;
+            }
+            QCheckBox::indicator {
+                width: 20px;
+                height: 20px;
+                border: 2px solid #4a5568;
+                border-radius: 5px;
+                background-color: #252b38;
+            }
+            QCheckBox::indicator:checked {
+                background-color: #4CAF50;
+                border-color: #4CAF50;
+            }
+            QCheckBox::indicator:hover {
+                border-color: #5a6678;
             }
         """)
         controllers_layout.addWidget(self.ac_ctrl.widget)
         self.ac_ctrl.status_signal.connect(self.status.showMessage)
+        
+        controllers_layout.addStretch()
+        controllers_main_layout.addLayout(controllers_layout)
+        controllers_main_layout.addStretch()
+        
+        # THP Controller (still needed for data but in Dashboard)
+        thp_port = self.config.get("com_ports", {}).get("thp_controller", "")
+        self.thp_ctrl = THPController(port=thp_port, parent=self)
+        self.thp_ctrl.status_signal.connect(self.status.showMessage)
         
         self.main_tabs.addTab(controllers, "⚙️ Controllers")
     
