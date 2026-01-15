@@ -12,6 +12,7 @@ import pyqtgraph as pg
 from controllers.temp_controller import TempController
 from controllers.thp_controller import THPController
 from controllers.motor_controller import MotorController
+from controllers.ac_controller import ACController
 
 import smtplib
 from email.mime.text import MIMEText
@@ -179,6 +180,28 @@ class MainWindow(QMainWindow):
             }
         """)
         ctrl_layout.addWidget(self.thp_ctrl.groupbox)
+        self.ac_ctrl = ACController(parent=self)
+        ac_port = self.config.get("com_ports", {}).get("ac_controller", "")
+        if ac_port:
+            self.ac_ctrl.port = ac_port
+        self.ac_ctrl.widget.setMaximumWidth(280)
+        self.ac_ctrl.widget.setStyleSheet("""
+            QGroupBox { 
+                background-color: #1e2430;
+                border: 2px solid #3a4553;
+                border-radius: 12px;
+                color: white;
+                padding: 15px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 0 8px;
+                color: #a0a8b8;
+                font-weight: bold;
+            }
+        """)
+        ctrl_layout.addWidget(self.ac_ctrl.widget)
         top_layout.addLayout(ctrl_layout)
         main_layout.addLayout(top_layout)
 
@@ -273,6 +296,7 @@ class MainWindow(QMainWindow):
         # Wire status signals
         self.temp_ctrl.status_signal.connect(self.status.showMessage)
         self.thp_ctrl.status_signal.connect(self.status.showMessage)
+        self.ac_ctrl.status_signal.connect(self.status.showMessage)
 
         # Data storage & state
         self.timestamps = []
@@ -444,7 +468,8 @@ class MainWindow(QMainWindow):
             "com_ports": {
                 "temp_controller": "COM2",
                 "thp_controller": "COM8",
-                "motor_controller": "COM7"
+                "motor_controller": "COM7",
+                "ac_controller": "COM10"
             }
         }
         

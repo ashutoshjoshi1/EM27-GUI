@@ -2,12 +2,14 @@
     "com_ports": {
         "temp_controller": "COM2",
         "thp_controller": "COM8",
-        "motor_controller": "COM7"
+        "motor_controller": "COM7",
+        "ac_controller": "COM10"
     },
     "description": {
         "temp_controller": "COM port for Temperature Controller (TC36-25)",
         "thp_controller": "COM port for THP Sensor (Temperature, Humidity, Pressure)",
-        "motor_controller": "COM port for Motor Controller"
+        "motor_controller": "COM port for Motor Controller",
+        "ac_controller": "COM port for AC Controller (Seifert/SCE NextGen)"
     }
 }
 
