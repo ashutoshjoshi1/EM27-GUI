@@ -312,14 +312,14 @@ class RangeSlider(QWidget):
         # Track background
         pen = QPen(QColor("#ddd"), self.track_h, Qt.SolidLine, Qt.RoundCap)
         painter.setPen(pen)
-        painter.drawLine(x0, y, x1, y)
+        painter.drawLine(int(x0), int(y), int(x1), int(y))
         
         # Range fill (active range)
         lx = self._val_to_x(self.low_val)
         hx = self._val_to_x(self.high_val)
         pen = QPen(QColor("#8aa"), self.track_h, Qt.SolidLine, Qt.RoundCap)
         painter.setPen(pen)
-        painter.drawLine(lx, y, hx, y)
+        painter.drawLine(int(lx), int(y), int(hx), int(y))
         
         # Handles
         brush = QBrush(QColor("#fff"))

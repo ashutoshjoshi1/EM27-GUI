@@ -38,10 +38,38 @@ class MainWindow(QMainWindow):
         central = QWidget()
         central.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #0f1419, stop:1 #1a1f2e);")
         main_layout = QVBoxLayout(central)
-        main_layout.setSpacing(10)
-        main_layout.setContentsMargins(10, 10, 10, 10)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(15, 15, 15, 15)
         self.setCentralWidget(central)
         
+        # Create main tab widget
+        self.main_tabs = QTabWidget()
+        self.main_tabs.setStyleSheet("""
+            QTabWidget::pane {
+                background-color: transparent;
+                border: none;
+            }
+            QTabBar::tab {
+                background-color: #252b38;
+                color: #a0a8b8;
+                padding: 15px 30px;
+                margin-right: 3px;
+                border-top-left-radius: 10px;
+                border-top-right-radius: 10px;
+                font-weight: bold;
+                font-size: 13px;
+            }
+            QTabBar::tab:selected {
+                background-color: #1e2430;
+                color: white;
+                border-bottom: 3px solid #667eea;
+            }
+            QTabBar::tab:hover {
+                background-color: #2a3441;
+            }
+        """)
+        main_layout.addWidget(self.main_tabs)
+
         # Status bar
         self.status = QStatusBar()
         self.status.setStyleSheet("""
@@ -54,34 +82,6 @@ class MainWindow(QMainWindow):
             }
         """)
         self.setStatusBar(self.status)
-        
-        # Create main tab widget
-        self.main_tabs = QTabWidget()
-        self.main_tabs.setStyleSheet("""
-            QTabWidget::pane {
-                background-color: transparent;
-                border: none;
-            }
-            QTabBar::tab {
-                background-color: #252b38;
-                color: #a0a8b8;
-                padding: 15px 35px;
-                margin-right: 3px;
-                border-top-left-radius: 10px;
-                border-top-right-radius: 10px;
-                font-weight: bold;
-                font-size: 14px;
-            }
-            QTabBar::tab:selected {
-                background-color: #1e2430;
-                color: white;
-                border-bottom: 3px solid #667eea;
-            }
-            QTabBar::tab:hover {
-                background-color: #2a3441;
-            }
-        """)
-        main_layout.addWidget(self.main_tabs)
         
         # Initialize data storage
         self.timestamps = []
@@ -123,7 +123,390 @@ class MainWindow(QMainWindow):
                 self.open_motor()
         except Exception as e:
             self.status.showMessage(f"Startup rain check failed: {e}")
+    
+    def _create_dashboard_tab(self):
+        """Create the main dashboard tab with sensor cards and plots"""
+        dashboard = QWidget()
+        dashboard_layout = QVBoxLayout(dashboard)
+        dashboard_layout.setSpacing(20)
+        dashboard_layout.setContentsMargins(15, 15, 15, 15)
+
+        # Sensor Cards Row
+        sensor_cards_layout = QHBoxLayout()
+        sensor_cards_layout.setSpacing(25)
+        sensor_cards_layout.addStretch()
         
+        # Temperature card - Warm gradient
+        temp_card = QGroupBox()
+        temp_card.setFixedSize(220, 260)
+        temp_card.setStyleSheet("""
+            QGroupBox { 
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #FF6B6B, stop:1 #FF8E53);
+                border-radius: 15px;
+                border: 2px solid rgba(255, 255, 255, 0.2);
+                padding: 15px;
+            }
+        """)
+        tc_layout = QVBoxLayout(temp_card)
+        tc_layout.setSpacing(10)
+        lbl_t_title = QLabel("🌡️ Temperature", alignment=Qt.AlignCenter)
+        lbl_t_title.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        lbl_t_title.setStyleSheet("color: white; background: transparent;")
+        self.lbl_t_value = QLabel("--", alignment=Qt.AlignCenter)
+        self.lbl_t_value.setFont(QFont("Segoe UI", 38, QFont.Bold))
+        self.lbl_t_value.setStyleSheet("color: white; background: transparent;")
+        lbl_t_unit = QLabel("°C", alignment=Qt.AlignCenter)
+        lbl_t_unit.setFont(QFont("Segoe UI", 14))
+        lbl_t_unit.setStyleSheet("color: rgba(255, 255, 255, 0.9); background: transparent;")
+        tc_layout.addWidget(lbl_t_title)
+        tc_layout.addWidget(self.lbl_t_value)
+        tc_layout.addWidget(lbl_t_unit)
+        sensor_cards_layout.addWidget(temp_card)
+        
+        # Humidity card - Cool teal gradient
+        hum_card = QGroupBox()
+        hum_card.setFixedSize(220, 260)
+        hum_card.setStyleSheet("""
+            QGroupBox { 
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4ECDC4, stop:1 #44A08D);
+                border-radius: 15px;
+                border: 2px solid rgba(255, 255, 255, 0.2);
+                padding: 15px;
+            }
+        """)
+        hu_layout = QVBoxLayout(hum_card)
+        hu_layout.setSpacing(10)
+        lbl_h_title = QLabel("💧 Humidity", alignment=Qt.AlignCenter)
+        lbl_h_title.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        lbl_h_title.setStyleSheet("color: white; background: transparent;")
+        self.lbl_h_value = QLabel("--", alignment=Qt.AlignCenter)
+        self.lbl_h_value.setFont(QFont("Segoe UI", 38, QFont.Bold))
+        self.lbl_h_value.setStyleSheet("color: white; background: transparent;")
+        lbl_h_unit = QLabel("%", alignment=Qt.AlignCenter)
+        lbl_h_unit.setFont(QFont("Segoe UI", 14))
+        lbl_h_unit.setStyleSheet("color: rgba(255, 255, 255, 0.9); background: transparent;")
+        hu_layout.addWidget(lbl_h_title)
+        hu_layout.addWidget(self.lbl_h_value)
+        hu_layout.addWidget(lbl_h_unit)
+        sensor_cards_layout.addWidget(hum_card)
+        
+        # Pressure card - Cool blue-purple gradient
+        pres_card = QGroupBox()
+        pres_card.setFixedSize(220, 260)
+        pres_card.setStyleSheet("""
+            QGroupBox { 
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #667eea, stop:1 #764ba2);
+                border-radius: 15px;
+                border: 2px solid rgba(255, 255, 255, 0.2);
+                padding: 15px;
+            }
+        """)
+        pr_layout = QVBoxLayout(pres_card)
+        pr_layout.setSpacing(10)
+        lbl_p_title = QLabel("📊 Pressure", alignment=Qt.AlignCenter)
+        lbl_p_title.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        lbl_p_title.setStyleSheet("color: white; background: transparent;")
+        self.lbl_p_value = QLabel("--", alignment=Qt.AlignCenter)
+        self.lbl_p_value.setFont(QFont("Segoe UI", 38, QFont.Bold))
+        self.lbl_p_value.setStyleSheet("color: white; background: transparent;")
+        lbl_p_unit = QLabel("hPa", alignment=Qt.AlignCenter)
+        lbl_p_unit.setFont(QFont("Segoe UI", 14))
+        lbl_p_unit.setStyleSheet("color: rgba(255, 255, 255, 0.9); background: transparent;")
+        pr_layout.addWidget(lbl_p_title)
+        pr_layout.addWidget(self.lbl_p_value)
+        pr_layout.addWidget(lbl_p_unit)
+        sensor_cards_layout.addWidget(pres_card)
+        sensor_cards_layout.addStretch()
+        
+        dashboard_layout.addLayout(sensor_cards_layout)
+        self.temp_ctrl = TempController(parent=self)
+        temp_port = self.config.get("com_ports", {}).get("temp_controller", "")
+        if temp_port:
+            self.temp_ctrl.port = temp_port
+        self.temp_ctrl.connect_controller()
+        self.temp_ctrl.widget.setMaximumWidth(280)
+        self.temp_ctrl.widget.setStyleSheet("""
+            QGroupBox { 
+                background-color: #1e2430;
+                border: 2px solid #3a4553;
+                border-radius: 12px;
+                color: white;
+                padding: 15px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 0 8px;
+                color: #a0a8b8;
+                font-weight: bold;
+            }
+        """)
+        ctrl_layout.addWidget(self.temp_ctrl.widget)
+        thp_port = self.config.get("com_ports", {}).get("thp_controller", "")
+        self.thp_ctrl = THPController(port=thp_port, parent=self)
+        self.thp_ctrl.groupbox.setMaximumWidth(280)
+        self.thp_ctrl.groupbox.setStyleSheet("""
+            QGroupBox { 
+                background-color: #1e2430;
+                border: 2px solid #3a4553;
+                border-radius: 12px;
+                color: white;
+                padding: 15px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 0 8px;
+                color: #a0a8b8;
+                font-weight: bold;
+            }
+        """)
+        ctrl_layout.addWidget(self.thp_ctrl.groupbox)
+        self.ac_ctrl = ACController(parent=self)
+        ac_port = self.config.get("com_ports", {}).get("ac_controller", "")
+        if ac_port:
+            self.ac_ctrl.port = ac_port
+        self.ac_ctrl.widget.setMaximumWidth(280)
+        self.ac_ctrl.widget.setStyleSheet("""
+            QGroupBox { 
+                background-color: #1e2430;
+                border: 2px solid #3a4553;
+                border-radius: 12px;
+                color: white;
+                padding: 15px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 0 8px;
+                color: #a0a8b8;
+                font-weight: bold;
+            }
+        """)
+        ctrl_layout.addWidget(self.ac_ctrl.widget)
+        top_layout.addLayout(ctrl_layout)
+        main_layout.addLayout(top_layout)
+
+        # Motor controls & rain indicator
+        motor_group = QGroupBox("⚙️ Motor Control")
+        motor_group.setStyleSheet("""
+            QGroupBox { 
+                background-color: #1e2430;
+                border: 2px solid #3a4553;
+                border-radius: 12px;
+                color: white;
+                padding: 15px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 0 8px;
+                color: #a0a8b8;
+                font-weight: bold;
+                font-size: 14px;
+            }
+        """)
+        motor_layout = QVBoxLayout(motor_group)
+        motor_layout.setSpacing(15)
+        self.motor_ctrl = MotorController(parent=self)
+        self.motor_ctrl.status_signal.connect(self.status.showMessage)
+        motor_port = self.config.get("com_ports", {}).get("motor_controller", "")
+        self.motor_ctrl.preferred_port = motor_port
+        self.motor_ctrl.connect()
+        motor_layout.addWidget(self.motor_ctrl.groupbox)
+        self.rain_indicator = QLabel("🌦️ Rain: Unknown")
+        self.rain_indicator.setStyleSheet("""
+            font-weight: bold; 
+            font-size: 16px; 
+            color: #a0a8b8;
+            padding: 10px;
+            background-color: #252b38;
+            border-radius: 8px;
+        """)
+        motor_layout.addWidget(self.rain_indicator)
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(15)
+        self.open_btn = QPushButton("🟢 OPEN")
+        self.open_btn.setMinimumHeight(55)
+        self.open_btn.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        self.open_btn.setStyleSheet("""
+            QPushButton {
+                font-size: 14px;
+                padding: 12px;
+                border-radius: 10px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4CAF50, stop:1 #45a049);
+                color: white;
+                border: none;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #66BB6A, stop:1 #4CAF50);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #388E3C, stop:1 #2E7D32);
+            }
+            QPushButton:disabled {
+                background: #3a4553;
+                color: #6a7585;
+            }
+        """)
+        self.open_btn.clicked.connect(self.open_motor)
+        btn_layout.addWidget(self.open_btn)
+        self.close_btn = QPushButton("🔴 CLOSE")
+        self.close_btn.setMinimumHeight(55)
+        self.close_btn.setFont(QFont("Segoe UI", 14, QFont.Bold))
+        self.close_btn.setStyleSheet("""
+            QPushButton {
+                font-size: 14px;
+                padding: 12px;
+                border-radius: 10px;
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f44336, stop:1 #d32f2f);
+                color: white;
+                border: none;
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #EF5350, stop:1 #f44336);
+            }
+            QPushButton:pressed {
+                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #c62828, stop:1 #b71c1c);
+            }
+        """)
+        self.close_btn.clicked.connect(self.close_motor)
+        btn_layout.addWidget(self.close_btn)
+        motor_layout.addLayout(btn_layout)
+        main_layout.addWidget(motor_group)
+
+        # Wire status signals
+        self.temp_ctrl.status_signal.connect(self.status.showMessage)
+        self.thp_ctrl.status_signal.connect(self.status.showMessage)
+        self.ac_ctrl.status_signal.connect(self.status.showMessage)
+
+        # Data storage & state
+        self.timestamps = []
+        self.thp_temps = []
+        self.hums = []
+        self.pressures = []
+        self.current_position = None
+
+        # 24h plots setup
+        date_axis_temp = pg.DateAxisItem(orientation='bottom')
+        date_axis_hum = pg.DateAxisItem(orientation='bottom')
+        date_axis_pres = pg.DateAxisItem(orientation='bottom')
+
+        tabs = QTabWidget()
+        tabs.setStyleSheet("""
+            QTabWidget::pane {
+                background-color: #1e2430;
+                border: 2px solid #3a4553;
+                border-radius: 12px;
+            }
+            QTabBar::tab {
+                background-color: #252b38;
+                color: #a0a8b8;
+                padding: 12px 24px;
+                margin-right: 3px;
+                border-top-left-radius: 8px;
+                border-top-right-radius: 8px;
+                font-weight: bold;
+            }
+            QTabBar::tab:selected {
+                background-color: #1e2430;
+                color: white;
+                border-bottom: 2px solid #667eea;
+            }
+            QTabBar::tab:hover {
+                background-color: #2a3441;
+            }
+        """)
+        # Temperature plot
+        temp_tab = QWidget(); t_layout = QVBoxLayout(temp_tab)
+        t_layout.setContentsMargins(10, 10, 10, 10)
+        self.temp_plot = pg.PlotWidget(axisItems={'bottom': date_axis_temp})
+        self.temp_plot.setTitle("Temperature (24h)", color='#FF6B6B', size='14pt')
+        self.temp_plot.setLabel('left', 'Temperature', units='°C', color='#a0a8b8')
+        self.temp_plot.setLabel('bottom', 'Time', color='#a0a8b8')
+        self.temp_plot.setBackground('#1e2430')
+        self.temp_plot.showGrid(x=True, y=True, alpha=0.3)
+        self.temp_curve = self.temp_plot.plot(pen=pg.mkPen(color='#FF6B6B', width=3))
+        t_layout.addWidget(self.temp_plot)
+        tabs.addTab(temp_tab, "🌡️ Temperature")
+        # Humidity plot
+        hum_tab = QWidget(); h_layout = QVBoxLayout(hum_tab)
+        h_layout.setContentsMargins(10, 10, 10, 10)
+        self.hum_plot = pg.PlotWidget(axisItems={'bottom': date_axis_hum})
+        self.hum_plot.setTitle("Humidity (24h)", color='#4ECDC4', size='14pt')
+        self.hum_plot.setLabel('left', 'Humidity', units='%', color='#a0a8b8')
+        self.hum_plot.setLabel('bottom', 'Time', color='#a0a8b8')
+        self.hum_plot.setBackground('#1e2430')
+        self.hum_plot.showGrid(x=True, y=True, alpha=0.3)
+        self.hum_curve = self.hum_plot.plot(pen=pg.mkPen(color='#4ECDC4', width=3))
+        h_layout.addWidget(self.hum_plot)
+        tabs.addTab(hum_tab, "💧 Humidity")
+        # Pressure plot
+        pres_tab = QWidget(); p_layout = QVBoxLayout(pres_tab)
+        p_layout.setContentsMargins(10, 10, 10, 10)
+        self.pres_plot = pg.PlotWidget(axisItems={'bottom': date_axis_pres})
+        self.pres_plot.setTitle("Pressure (24h)", color='#667eea', size='14pt')
+        self.pres_plot.setLabel('left', 'Pressure', units='hPa', color='#a0a8b8')
+        self.pres_plot.setLabel('bottom', 'Time', color='#a0a8b8')
+        self.pres_plot.setBackground('#1e2430')
+        self.pres_plot.showGrid(x=True, y=True, alpha=0.3)
+        self.pres_curve = self.pres_plot.plot(pen=pg.mkPen(color='#667eea', width=3))
+        p_layout.addWidget(self.pres_plot)
+        tabs.addTab(pres_tab, "📊 Pressure")
+
+        plots_group = QGroupBox("📈 Sensor Data (Last 24 Hours)")
+        plots_group.setStyleSheet("""
+            QGroupBox { 
+                background-color: #1e2430;
+                border: 2px solid #3a4553;
+                border-radius: 12px;
+                color: white;
+                padding: 15px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top center;
+                padding: 0 8px;
+                color: #a0a8b8;
+                font-weight: bold;
+                font-size: 14px;
+            }
+        """)
+        plots_layout = QVBoxLayout(plots_group)
+        plots_layout.setContentsMargins(10, 10, 10, 10)
+        plots_layout.addWidget(tabs)
+        main_layout.addWidget(plots_group)
+
+        # Timers
+        self.update_timer = QTimer(self)
+        self.update_timer.timeout.connect(self.update_data)
+        self.update_timer.start(1000)
+        self.rain_timer = QTimer(self)
+        self.rain_timer.timeout.connect(self.check_rain_status)
+        self.rain_timer.start(1000)
+
+        self.was_raining = False
+        self.already_sent_mail = False
+
+        # ── NEW: put your SMTP credentials here ─────────────────
+        self.sender_email    = "alerts@sciglob.com"
+        self.receiver_email = ["omar@sciglob.com", "ajoshi@sciglob.com", "jgallegos@sciglob.com"]
+        self.sender_password = "tpnu xyav aybr wguk"
+        self.smtp_server     = "smtp.gmail.com"
+        self.smtp_port       = 587  # or 465 if you use SSL
+
+        try:
+            success, message = self.motor_ctrl.driver.check_rain_status()
+            if success and "Raining" in message:
+                self.status.showMessage("Startup: It's raining → keeping head closed")
+                self.close_motor()
+            else:
+                self.status.showMessage("Startup: Not raining → auto-opening head")
+                self.open_motor()
+        except Exception as e:
+            self.status.showMessage(f"Startup rain check failed: {e}")
+
+    
         # Global styling
         self.setStyleSheet("""
             QMainWindow {
@@ -160,397 +543,6 @@ class MainWindow(QMainWindow):
             }
         """)
     
-    def _create_dashboard_tab(self):
-        """Create the main dashboard tab with sensor cards and plots"""
-        dashboard = QWidget()
-        dashboard_layout = QVBoxLayout(dashboard)
-        dashboard_layout.setSpacing(20)
-        dashboard_layout.setContentsMargins(20, 20, 20, 20)
-        
-        # Sensor Cards Row
-        sensor_cards_layout = QHBoxLayout()
-        sensor_cards_layout.setSpacing(30)
-        sensor_cards_layout.addStretch()
-        
-        # Temperature card - Warm gradient
-        temp_card = QGroupBox()
-        temp_card.setFixedSize(240, 280)
-        temp_card.setStyleSheet("""
-            QGroupBox { 
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #FF6B6B, stop:1 #FF8E53);
-                border-radius: 20px;
-                border: 3px solid rgba(255, 255, 255, 0.3);
-                padding: 20px;
-            }
-        """)
-        tc_layout = QVBoxLayout(temp_card)
-        tc_layout.setSpacing(15)
-        lbl_t_title = QLabel("🌡️ Temperature", alignment=Qt.AlignCenter)
-        lbl_t_title.setFont(QFont("Segoe UI", 15, QFont.Bold))
-        lbl_t_title.setStyleSheet("color: white; background: transparent;")
-        self.lbl_t_value = QLabel("--", alignment=Qt.AlignCenter)
-        self.lbl_t_value.setFont(QFont("Segoe UI", 42, QFont.Bold))
-        self.lbl_t_value.setStyleSheet("color: white; background: transparent;")
-        lbl_t_unit = QLabel("°C", alignment=Qt.AlignCenter)
-        lbl_t_unit.setFont(QFont("Segoe UI", 16))
-        lbl_t_unit.setStyleSheet("color: rgba(255, 255, 255, 0.9); background: transparent;")
-        tc_layout.addWidget(lbl_t_title)
-        tc_layout.addWidget(self.lbl_t_value)
-        tc_layout.addWidget(lbl_t_unit)
-        sensor_cards_layout.addWidget(temp_card)
-        
-        # Humidity card - Cool teal gradient
-        hum_card = QGroupBox()
-        hum_card.setFixedSize(240, 280)
-        hum_card.setStyleSheet("""
-            QGroupBox { 
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #4ECDC4, stop:1 #44A08D);
-                border-radius: 20px;
-                border: 3px solid rgba(255, 255, 255, 0.3);
-                padding: 20px;
-            }
-        """)
-        hu_layout = QVBoxLayout(hum_card)
-        hu_layout.setSpacing(15)
-        lbl_h_title = QLabel("💧 Humidity", alignment=Qt.AlignCenter)
-        lbl_h_title.setFont(QFont("Segoe UI", 15, QFont.Bold))
-        lbl_h_title.setStyleSheet("color: white; background: transparent;")
-        self.lbl_h_value = QLabel("--", alignment=Qt.AlignCenter)
-        self.lbl_h_value.setFont(QFont("Segoe UI", 42, QFont.Bold))
-        self.lbl_h_value.setStyleSheet("color: white; background: transparent;")
-        lbl_h_unit = QLabel("%", alignment=Qt.AlignCenter)
-        lbl_h_unit.setFont(QFont("Segoe UI", 16))
-        lbl_h_unit.setStyleSheet("color: rgba(255, 255, 255, 0.9); background: transparent;")
-        hu_layout.addWidget(lbl_h_title)
-        hu_layout.addWidget(self.lbl_h_value)
-        hu_layout.addWidget(lbl_h_unit)
-        sensor_cards_layout.addWidget(hum_card)
-        
-        # Pressure card - Cool blue-purple gradient
-        pres_card = QGroupBox()
-        pres_card.setFixedSize(240, 280)
-        pres_card.setStyleSheet("""
-            QGroupBox { 
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #667eea, stop:1 #764ba2);
-                border-radius: 20px;
-                border: 3px solid rgba(255, 255, 255, 0.3);
-                padding: 20px;
-            }
-        """)
-        pr_layout = QVBoxLayout(pres_card)
-        pr_layout.setSpacing(15)
-        lbl_p_title = QLabel("📊 Pressure", alignment=Qt.AlignCenter)
-        lbl_p_title.setFont(QFont("Segoe UI", 15, QFont.Bold))
-        lbl_p_title.setStyleSheet("color: white; background: transparent;")
-        self.lbl_p_value = QLabel("--", alignment=Qt.AlignCenter)
-        self.lbl_p_value.setFont(QFont("Segoe UI", 42, QFont.Bold))
-        self.lbl_p_value.setStyleSheet("color: white; background: transparent;")
-        lbl_p_unit = QLabel("hPa", alignment=Qt.AlignCenter)
-        lbl_p_unit.setFont(QFont("Segoe UI", 16))
-        lbl_p_unit.setStyleSheet("color: rgba(255, 255, 255, 0.9); background: transparent;")
-        pr_layout.addWidget(lbl_p_title)
-        pr_layout.addWidget(self.lbl_p_value)
-        pr_layout.addWidget(lbl_p_unit)
-        sensor_cards_layout.addWidget(pres_card)
-        sensor_cards_layout.addStretch()
-        
-        dashboard_layout.addLayout(sensor_cards_layout)
-        
-        # 24h plots setup
-        date_axis_temp = pg.DateAxisItem(orientation='bottom')
-        date_axis_hum = pg.DateAxisItem(orientation='bottom')
-        date_axis_pres = pg.DateAxisItem(orientation='bottom')
-
-        tabs = QTabWidget()
-        tabs.setStyleSheet("""
-            QTabWidget::pane {
-                background-color: #1e2430;
-                border: 2px solid #3a4553;
-                border-radius: 12px;
-            }
-            QTabBar::tab {
-                background-color: #252b38;
-                color: #a0a8b8;
-                padding: 12px 28px;
-                margin-right: 3px;
-                border-top-left-radius: 8px;
-                border-top-right-radius: 8px;
-                font-weight: bold;
-            }
-            QTabBar::tab:selected {
-                background-color: #1e2430;
-                color: white;
-                border-bottom: 2px solid #667eea;
-            }
-            QTabBar::tab:hover {
-                background-color: #2a3441;
-            }
-        """)
-        
-        # Temperature plot
-        temp_tab = QWidget()
-        t_layout = QVBoxLayout(temp_tab)
-        t_layout.setContentsMargins(15, 15, 15, 15)
-        self.temp_plot = pg.PlotWidget(axisItems={'bottom': date_axis_temp})
-        self.temp_plot.setTitle("Temperature (24h)", color='#FF6B6B', size='16pt')
-        self.temp_plot.setLabel('left', 'Temperature', units='°C', color='#a0a8b8')
-        self.temp_plot.setLabel('bottom', 'Time', color='#a0a8b8')
-        self.temp_plot.setBackground('#1e2430')
-        self.temp_plot.showGrid(x=True, y=True, alpha=0.3)
-        self.temp_curve = self.temp_plot.plot(pen=pg.mkPen(color='#FF6B6B', width=3))
-        t_layout.addWidget(self.temp_plot)
-        tabs.addTab(temp_tab, "🌡️ Temperature")
-        
-        # Humidity plot
-        hum_tab = QWidget()
-        h_layout = QVBoxLayout(hum_tab)
-        h_layout.setContentsMargins(15, 15, 15, 15)
-        self.hum_plot = pg.PlotWidget(axisItems={'bottom': date_axis_hum})
-        self.hum_plot.setTitle("Humidity (24h)", color='#4ECDC4', size='16pt')
-        self.hum_plot.setLabel('left', 'Humidity', units='%', color='#a0a8b8')
-        self.hum_plot.setLabel('bottom', 'Time', color='#a0a8b8')
-        self.hum_plot.setBackground('#1e2430')
-        self.hum_plot.showGrid(x=True, y=True, alpha=0.3)
-        self.hum_curve = self.hum_plot.plot(pen=pg.mkPen(color='#4ECDC4', width=3))
-        h_layout.addWidget(self.hum_plot)
-        tabs.addTab(hum_tab, "💧 Humidity")
-        
-        # Pressure plot
-        pres_tab = QWidget()
-        p_layout = QVBoxLayout(pres_tab)
-        p_layout.setContentsMargins(15, 15, 15, 15)
-        self.pres_plot = pg.PlotWidget(axisItems={'bottom': date_axis_pres})
-        self.pres_plot.setTitle("Pressure (24h)", color='#667eea', size='16pt')
-        self.pres_plot.setLabel('left', 'Pressure', units='hPa', color='#a0a8b8')
-        self.pres_plot.setLabel('bottom', 'Time', color='#a0a8b8')
-        self.pres_plot.setBackground('#1e2430')
-        self.pres_plot.showGrid(x=True, y=True, alpha=0.3)
-        self.pres_curve = self.pres_plot.plot(pen=pg.mkPen(color='#667eea', width=3))
-        p_layout.addWidget(self.pres_plot)
-        tabs.addTab(pres_tab, "📊 Pressure")
-
-        plots_group = QGroupBox("📈 Sensor Data (Last 24 Hours)")
-        plots_group.setStyleSheet("""
-            QGroupBox { 
-                background-color: #1e2430;
-                border: 2px solid #3a4553;
-                border-radius: 12px;
-                color: white;
-                padding: 15px;
-                font-size: 14px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top center;
-                padding: 0 10px;
-                color: #a0a8b8;
-                font-weight: bold;
-                font-size: 15px;
-            }
-        """)
-        plots_layout = QVBoxLayout(plots_group)
-        plots_layout.setContentsMargins(15, 25, 15, 15)
-        plots_layout.addWidget(tabs)
-        dashboard_layout.addWidget(plots_group)
-        
-        self.main_tabs.addTab(dashboard, "📊 Dashboard")
-    
-    def _create_controllers_tab(self):
-        """Create the controllers tab"""
-        controllers = QWidget()
-        controllers_layout = QHBoxLayout(controllers)
-        controllers_layout.setSpacing(20)
-        controllers_layout.setContentsMargins(20, 20, 20, 20)
-        
-        # Left column
-        left_col = QVBoxLayout()
-        left_col.setSpacing(20)
-        
-        # Temperature Controller
-        self.temp_ctrl = TempController(parent=self)
-        temp_port = self.config.get("com_ports", {}).get("temp_controller", "")
-        if temp_port:
-            self.temp_ctrl.port = temp_port
-        self.temp_ctrl.connect_controller()
-        self.temp_ctrl.widget.setMinimumWidth(380)
-        self.temp_ctrl.widget.setStyleSheet("""
-            QGroupBox { 
-                background-color: #1e2430;
-                border: 2px solid #3a4553;
-                border-radius: 12px;
-                color: white;
-                padding: 15px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top center;
-                padding: 0 10px;
-                color: #a0a8b8;
-                font-weight: bold;
-                font-size: 14px;
-            }
-        """)
-        left_col.addWidget(self.temp_ctrl.widget)
-        self.temp_ctrl.status_signal.connect(self.status.showMessage)
-        
-        # THP Controller
-        thp_port = self.config.get("com_ports", {}).get("thp_controller", "")
-        self.thp_ctrl = THPController(port=thp_port, parent=self)
-        self.thp_ctrl.groupbox.setMinimumWidth(380)
-        self.thp_ctrl.groupbox.setStyleSheet("""
-            QGroupBox { 
-                background-color: #1e2430;
-                border: 2px solid #3a4553;
-                border-radius: 12px;
-                color: white;
-                padding: 15px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top center;
-                padding: 0 10px;
-                color: #a0a8b8;
-                font-weight: bold;
-                font-size: 14px;
-            }
-        """)
-        left_col.addWidget(self.thp_ctrl.groupbox)
-        self.thp_ctrl.status_signal.connect(self.status.showMessage)
-        
-        left_col.addStretch()
-        controllers_layout.addLayout(left_col)
-        
-        # Right column - AC Controller
-        self.ac_ctrl = ACController(parent=self)
-        ac_port = self.config.get("com_ports", {}).get("ac_controller", "")
-        if ac_port:
-            self.ac_ctrl.port = ac_port
-        self.ac_ctrl.widget.setMinimumWidth(450)
-        self.ac_ctrl.widget.setStyleSheet("""
-            QGroupBox { 
-                background-color: #1e2430;
-                border: 2px solid #3a4553;
-                border-radius: 12px;
-                color: white;
-                padding: 15px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top center;
-                padding: 0 10px;
-                color: #a0a8b8;
-                font-weight: bold;
-                font-size: 14px;
-            }
-        """)
-        controllers_layout.addWidget(self.ac_ctrl.widget)
-        self.ac_ctrl.status_signal.connect(self.status.showMessage)
-        
-        self.main_tabs.addTab(controllers, "⚙️ Controllers")
-    
-    def _create_motor_tab(self):
-        """Create the motor control tab"""
-        motor_widget = QWidget()
-        motor_layout = QVBoxLayout(motor_widget)
-        motor_layout.setSpacing(25)
-        motor_layout.setContentsMargins(40, 40, 40, 40)
-        
-        # Motor controls & rain indicator
-        motor_group = QGroupBox("⚙️ Motor Control & Status")
-        motor_group.setStyleSheet("""
-            QGroupBox { 
-                background-color: #1e2430;
-                border: 2px solid #3a4553;
-                border-radius: 15px;
-                color: white;
-                padding: 25px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top center;
-                padding: 0 15px;
-                color: #a0a8b8;
-                font-weight: bold;
-                font-size: 16px;
-            }
-        """)
-        motor_group_layout = QVBoxLayout(motor_group)
-        motor_group_layout.setSpacing(20)
-        
-        self.motor_ctrl = MotorController(parent=self)
-        self.motor_ctrl.status_signal.connect(self.status.showMessage)
-        motor_port = self.config.get("com_ports", {}).get("motor_controller", "")
-        self.motor_ctrl.preferred_port = motor_port
-        self.motor_ctrl.connect()
-        motor_group_layout.addWidget(self.motor_ctrl.groupbox)
-        
-        self.rain_indicator = QLabel("🌦️ Rain: Unknown")
-        self.rain_indicator.setStyleSheet("""
-            font-weight: bold; 
-            font-size: 18px; 
-            color: #a0a8b8;
-            padding: 15px;
-            background-color: #252b38;
-            border-radius: 10px;
-        """)
-        motor_group_layout.addWidget(self.rain_indicator)
-        
-        btn_layout = QHBoxLayout()
-        btn_layout.setSpacing(20)
-        self.open_btn = QPushButton("🟢 OPEN")
-        self.open_btn.setMinimumHeight(65)
-        self.open_btn.setFont(QFont("Segoe UI", 16, QFont.Bold))
-        self.open_btn.setStyleSheet("""
-            QPushButton {
-                font-size: 16px;
-                padding: 15px;
-                border-radius: 12px;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #4CAF50, stop:1 #45a049);
-                color: white;
-                border: none;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #66BB6A, stop:1 #4CAF50);
-            }
-            QPushButton:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #388E3C, stop:1 #2E7D32);
-            }
-            QPushButton:disabled {
-                background: #3a4553;
-                color: #6a7585;
-            }
-        """)
-        self.open_btn.clicked.connect(self.open_motor)
-        btn_layout.addWidget(self.open_btn)
-        
-        self.close_btn = QPushButton("🔴 CLOSE")
-        self.close_btn.setMinimumHeight(65)
-        self.close_btn.setFont(QFont("Segoe UI", 16, QFont.Bold))
-        self.close_btn.setStyleSheet("""
-            QPushButton {
-                font-size: 16px;
-                padding: 15px;
-                border-radius: 12px;
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #f44336, stop:1 #d32f2f);
-                color: white;
-                border: none;
-            }
-            QPushButton:hover {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #EF5350, stop:1 #f44336);
-            }
-            QPushButton:pressed {
-                background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #c62828, stop:1 #b71c1c);
-            }
-        """)
-        self.close_btn.clicked.connect(self.close_motor)
-        btn_layout.addWidget(self.close_btn)
-        motor_group_layout.addLayout(btn_layout)
-        
-        motor_layout.addWidget(motor_group)
-        motor_layout.addStretch()
-        
-        self.main_tabs.addTab(motor_widget, "🎯 Motor Control")
-    
     def load_config(self):
         """Load configuration from config.json file"""
         config_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
@@ -567,15 +559,18 @@ class MainWindow(QMainWindow):
             if os.path.exists(config_path):
                 with open(config_path, 'r') as f:
                     config = json.load(f)
+                    # Merge with defaults to ensure all keys exist
                     if "com_ports" not in config:
                         config["com_ports"] = default_config["com_ports"]
                     else:
+                        # Merge com_ports to ensure all ports are present
                         for key in default_config["com_ports"]:
                             if key not in config["com_ports"]:
                                 config["com_ports"][key] = default_config["com_ports"][key]
                     print(f"Configuration loaded from {config_path}")
                     return config
             else:
+                # Create default config file if it doesn't exist
                 with open(config_path, 'w') as f:
                     json.dump(default_config, f, indent=4)
                 print(f"Created default config.json at {config_path}")
@@ -607,8 +602,8 @@ class MainWindow(QMainWindow):
     def send_rain_email(self):
         """Send a single 'it's raining' email."""
         msg = MIMEMultipart()
-        msg["From"] = self.sender_email
-        msg["To"] = ", ".join(self.receiver_email)
+        msg["From"]    = self.sender_email
+        msg["To"]      = ", ".join(self.receiver_email)
         msg["Subject"] = "EM-27 Weather Update"
 
         body = (
@@ -621,6 +616,7 @@ class MainWindow(QMainWindow):
         msg.attach(MIMEText(body, "plain"))
 
         try:
+            # If your server uses STARTTLS:
             server = smtplib.SMTP(self.smtp_server, self.smtp_port)
             server.ehlo()
             server.starttls()
@@ -637,11 +633,11 @@ class MainWindow(QMainWindow):
             self.rain_indicator.setText("❓ Rain Status: Unknown (Motor disconnected)")
             self.rain_indicator.setStyleSheet("""
                 font-weight: bold; 
-                font-size: 18px; 
+                font-size: 16px; 
                 color: #a0a8b8;
-                padding: 15px;
+                padding: 10px;
                 background-color: #252b38;
-                border-radius: 10px;
+                border-radius: 8px;
             """)
             return
 
@@ -652,56 +648,63 @@ class MainWindow(QMainWindow):
             self.rain_indicator.setText("⚠️ Rain Status: Error checking")
             self.rain_indicator.setStyleSheet("""
                 font-weight: bold; 
-                font-size: 18px; 
+                font-size: 16px; 
                 color: #FFB74D;
-                padding: 15px;
+                padding: 10px;
                 background-color: rgba(255, 183, 77, 0.15);
-                border-radius: 10px;
+                border-radius: 8px;
                 border: 2px solid rgba(255, 183, 77, 0.3);
             """)
             self.status.showMessage(f"Rain check error: {e}")
             return
 
         if raining_now:
+            # ── Raining ────────────────────────────────────────────
             self.rain_indicator.setText("🌧️ Rain Status: RAINING")
             self.rain_indicator.setStyleSheet("""
                 font-weight: bold; 
-                font-size: 18px; 
+                font-size: 16px; 
                 color: #FF6B6B;
-                padding: 15px;
+                padding: 10px;
                 background-color: rgba(255, 107, 107, 0.15);
-                border-radius: 10px;
+                border-radius: 8px;
                 border: 2px solid rgba(255, 107, 107, 0.3);
             """)
             self.open_btn.setEnabled(False)
 
+            # auto‐close if open
             if self.current_position == 90:
                 self.status.showMessage("Auto-closing due to rain detection")
                 self.close_motor()
 
+            # send one email per rain event
             if not self.already_sent_mail:
                 self.send_rain_email()
                 self.already_sent_mail = True
 
+            # remember that we're raining
             self.was_raining = True
 
         else:
+            # ── Not Raining ────────────────────────────────────────
             self.rain_indicator.setText("☀️ Rain Status: Not raining")
             self.rain_indicator.setStyleSheet("""
                 font-weight: bold; 
-                font-size: 18px; 
+                font-size: 16px; 
                 color: #4ECDC4;
-                padding: 15px;
+                padding: 10px;
                 background-color: rgba(78, 205, 196, 0.15);
-                border-radius: 10px;
+                border-radius: 8px;
                 border: 2px solid rgba(78, 205, 196, 0.3);
             """)
             self.open_btn.setEnabled(True)
 
+            # on transition R → ☀, auto‐open
             if self.was_raining:
                 self.status.showMessage("Rain stopped — auto-opening motor")
                 self.open_motor()
 
+            # reset flags
             self.was_raining = False
             self.already_sent_mail = False
 
@@ -735,35 +738,9 @@ class MainWindow(QMainWindow):
         self.hum_plot.enableAutoRange(axis='y')
         self.pres_plot.enableAutoRange(axis='y')
 
-def show_splash_screen(app):
-    """Show splash screen at startup"""
-    splash_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "splash.jpg")
-    if os.path.exists(splash_path):
-        pixmap = QPixmap(splash_path)
-        # Scale to appropriate size while maintaining aspect ratio
-        pixmap = pixmap.scaled(800, 600, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-        splash = QSplashScreen(pixmap)
-        splash.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
-        splash.show()
-        app.processEvents()
-        return splash
-    return None
-
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setFont(QFont("Segoe UI", 10))
-    
-    # Show splash screen
-    splash = show_splash_screen(app)
-    
-    # Create main window
+    app.setFont(QFont("Segoe UI", 9))
     window = MainWindow()
-    
-    # Close splash and show main window
-    if splash:
-        QTimer.singleShot(2500, splash.close)  # Show splash for 2.5 seconds
-        QTimer.singleShot(2500, window.show)
-    else:
-        window.show()
-    
+    window.show()
     sys.exit(app.exec_())
