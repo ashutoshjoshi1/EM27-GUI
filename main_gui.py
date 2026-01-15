@@ -28,8 +28,8 @@ class MainWindow(QMainWindow):
         if os.path.exists(icon_path):
             self.setWindowIcon(QIcon(icon_path))
         
-        # Set window to maximized but not fullscreen (respects taskbar)
-        self.showMaximized()
+        # Set minimum size to ensure good visibility
+        self.setMinimumSize(1400, 900)
         
         # Load configuration
         self.config = self.load_config()
@@ -359,88 +359,84 @@ class MainWindow(QMainWindow):
         """Create the controllers tab"""
         controllers = QWidget()
         controllers_layout = QHBoxLayout(controllers)
-        controllers_layout.setSpacing(20)
-        controllers_layout.setContentsMargins(20, 20, 20, 20)
+        controllers_layout.setSpacing(25)
+        controllers_layout.setContentsMargins(30, 30, 30, 30)
         
-        # Left column
-        left_col = QVBoxLayout()
-        left_col.setSpacing(20)
-        
-        # Temperature Controller
+        # Temperature Controller (Left)
         self.temp_ctrl = TempController(parent=self)
         temp_port = self.config.get("com_ports", {}).get("temp_controller", "")
         if temp_port:
             self.temp_ctrl.port = temp_port
         self.temp_ctrl.connect_controller()
-        self.temp_ctrl.widget.setMinimumWidth(380)
+        self.temp_ctrl.widget.setMinimumWidth(350)
+        self.temp_ctrl.widget.setMaximumWidth(450)
         self.temp_ctrl.widget.setStyleSheet("""
             QGroupBox { 
                 background-color: #1e2430;
                 border: 2px solid #3a4553;
-                border-radius: 12px;
+                border-radius: 15px;
                 color: white;
-                padding: 15px;
+                padding: 20px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 subcontrol-position: top center;
-                padding: 0 10px;
+                padding: 0 12px;
                 color: #a0a8b8;
                 font-weight: bold;
-                font-size: 14px;
+                font-size: 15px;
             }
         """)
-        left_col.addWidget(self.temp_ctrl.widget)
+        controllers_layout.addWidget(self.temp_ctrl.widget)
         self.temp_ctrl.status_signal.connect(self.status.showMessage)
         
-        # THP Controller
+        # THP Controller (Middle)
         thp_port = self.config.get("com_ports", {}).get("thp_controller", "")
         self.thp_ctrl = THPController(port=thp_port, parent=self)
-        self.thp_ctrl.groupbox.setMinimumWidth(380)
+        self.thp_ctrl.groupbox.setMinimumWidth(350)
+        self.thp_ctrl.groupbox.setMaximumWidth(450)
         self.thp_ctrl.groupbox.setStyleSheet("""
             QGroupBox { 
                 background-color: #1e2430;
                 border: 2px solid #3a4553;
-                border-radius: 12px;
+                border-radius: 15px;
                 color: white;
-                padding: 15px;
+                padding: 20px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 subcontrol-position: top center;
-                padding: 0 10px;
+                padding: 0 12px;
                 color: #a0a8b8;
                 font-weight: bold;
-                font-size: 14px;
+                font-size: 15px;
             }
         """)
-        left_col.addWidget(self.thp_ctrl.groupbox)
+        controllers_layout.addWidget(self.thp_ctrl.groupbox)
         self.thp_ctrl.status_signal.connect(self.status.showMessage)
         
-        left_col.addStretch()
-        controllers_layout.addLayout(left_col)
-        
-        # Right column - AC Controller
+        # AC Controller (Right)
         self.ac_ctrl = ACController(parent=self)
         ac_port = self.config.get("com_ports", {}).get("ac_controller", "")
         if ac_port:
             self.ac_ctrl.port = ac_port
-        self.ac_ctrl.widget.setMinimumWidth(450)
+        self.ac_ctrl.widget.setMinimumWidth(400)
+        self.ac_ctrl.widget.setMaximumWidth(550)
         self.ac_ctrl.widget.setStyleSheet("""
             QGroupBox { 
                 background-color: #1e2430;
                 border: 2px solid #3a4553;
-                border-radius: 12px;
+                border-radius: 15px;
                 color: white;
-                padding: 15px;
+                padding: 20px;
             }
             QGroupBox::title {
                 subcontrol-origin: margin;
                 subcontrol-position: top center;
-                padding: 0 10px;
+                padding: 0 12px;
                 color: #a0a8b8;
                 font-weight: bold;
-                font-size: 14px;
+                font-size: 15px;
             }
         """)
         controllers_layout.addWidget(self.ac_ctrl.widget)
@@ -756,14 +752,16 @@ if __name__ == "__main__":
     # Show splash screen
     splash = show_splash_screen(app)
     
-    # Create main window
+    # Create main window (but don't show yet)
     window = MainWindow()
     
-    # Close splash and show main window
+    # Close splash and show main window maximized
     if splash:
-        QTimer.singleShot(2500, splash.close)  # Show splash for 2.5 seconds
-        QTimer.singleShot(2500, window.show)
+        def show_window_maximized():
+            splash.close()
+            window.showMaximized()  # Ensure maximized state
+        QTimer.singleShot(2500, show_window_maximized)  # Show splash for 2.5 seconds
     else:
-        window.show()
+        window.showMaximized()
     
     sys.exit(app.exec_())
