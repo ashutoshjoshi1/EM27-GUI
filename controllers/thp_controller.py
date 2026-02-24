@@ -1,8 +1,13 @@
+import os
+from datetime import datetime
+
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 from PyQt5.QtWidgets import QGroupBox, QLabel, QVBoxLayout, QPushButton, QHBoxLayout
 import serial.tools.list_ports
 
 from drivers.thp_sensor import read_thp_sensor_data
+
+THP_LOG_DIR = "logs/THP-daily-readings"
 
 class THPController(QObject):
     status_signal = pyqtSignal(str)
@@ -89,6 +94,27 @@ class THPController(QObject):
                 continue
         return None
 
+    def _get_log_path(self):
+        """Return absolute path to logs/THP-daily-readings/ directory."""
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(root, THP_LOG_DIR)
+
+    def _log_thp_reading(self, data):
+        """Append Temp, Humidity, Pressure to the daily CSV file."""
+        try:
+            log_dir = self._get_log_path()
+            os.makedirs(log_dir, exist_ok=True)
+            filename = datetime.now().strftime("%b%d%Y") + ".csv"
+            filepath = os.path.join(log_dir, filename)
+            write_header = not os.path.exists(filepath)
+            with open(filepath, "a") as f:
+                if write_header:
+                    f.write("timestamp,temperature_C,humidity_percent,pressure_hPa\n")
+                ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                f.write(f"{ts},{data['temperature']:.2f},{data['humidity']:.2f},{data['pressure']:.2f}\n")
+        except Exception as e:
+            print(f"Failed to log THP reading: {e}")
+
     def _update_data(self):
         if not self.connected:
             return
@@ -100,6 +126,7 @@ class THPController(QObject):
             self.hum_lbl.setText(f"Humidity: {data['humidity']:.1f} %")
             self.pres_lbl.setText(f"Pressure: {data['pressure']:.1f} hPa")
             self.data_signal.emit(data)
+            self._log_thp_reading(data)
         else:
             self.status_signal.emit("THP sensor read failed.")
 
