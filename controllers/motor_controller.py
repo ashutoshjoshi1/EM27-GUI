@@ -33,7 +33,6 @@ class StrictIntValidator(QIntValidator):
         else:
             return (QValidator.Invalid, input_str, pos)
 
-
 class MotorController(QObject):
     status_signal = pyqtSignal(str)
 
