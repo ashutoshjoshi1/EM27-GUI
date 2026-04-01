@@ -445,7 +445,8 @@ class MainWindow(QMainWindow):
         """)
         controllers_layout.addWidget(self.ac_ctrl.widget)
         self.ac_ctrl.status_signal.connect(self.status.showMessage)
-        
+        self.thp_ctrl.set_companion_controllers(self.ac_ctrl, self.temp_ctrl)
+
         self.main_tabs.addTab(controllers, "⚙️ Controllers")
     
     def _create_motor_tab(self):

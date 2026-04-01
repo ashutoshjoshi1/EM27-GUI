@@ -521,7 +521,8 @@ class MainWindow(QMainWindow):
         thp_port = self.config.get("com_ports", {}).get("thp_controller", "")
         self.thp_ctrl = THPController(port=thp_port, parent=self)
         self.thp_ctrl.status_signal.connect(self.status.showMessage)
-        
+        self.thp_ctrl.set_companion_controllers(self.ac_ctrl, self.temp_ctrl)
+
         self.main_tabs.addTab(controllers, "🎛️ Temp Controller")
     
     def _create_motor_tab(self):

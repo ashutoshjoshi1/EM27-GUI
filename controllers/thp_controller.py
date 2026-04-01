@@ -7,7 +7,7 @@ import serial.tools.list_ports
 
 from drivers.thp_sensor import read_thp_sensor_data
 
-THP_LOG_DIR = "logs/THP-daily-readings"
+THP_LOG_DIR = "logs/Data-csv"
 
 class THPController(QObject):
     status_signal = pyqtSignal(str)
@@ -49,6 +49,9 @@ class THPController(QObject):
             "humidity": 0.0,
             "pressure": 0.0
         }
+
+        self._ac_ctrl = None
+        self._temp_ctrl = None
 
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._update_data)
@@ -94,13 +97,37 @@ class THPController(QObject):
                 continue
         return None
 
+    def set_companion_controllers(self, ac_ctrl, temp_ctrl):
+        """Register AC and Temperature controllers for joint CSV logging."""
+        self._ac_ctrl = ac_ctrl
+        self._temp_ctrl = temp_ctrl
+
     def _get_log_path(self):
         """Return absolute path to logs/THP-daily-readings/ directory."""
         root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         return os.path.join(root, THP_LOG_DIR)
 
     def _log_thp_reading(self, data):
-        """Append Temp, Humidity, Pressure to the daily CSV file."""
+        """Append THP + AC + TempController readings to the daily CSV file."""
+        nan = float("nan")
+
+        # AC Controller fields
+        if self._ac_ctrl is not None and self._ac_ctrl.is_connected():
+            ac_temp = self._ac_ctrl.latest_temp
+            ac_heater, ac_cooling = self._ac_ctrl.range_slider.get_values()
+        else:
+            ac_temp = ac_heater = ac_cooling = nan
+
+        # Temperature Controller fields
+        if self._temp_ctrl is not None and self._temp_ctrl.is_connected():
+            tc_setpoint = self._temp_ctrl.setpoint
+            tc_current  = self._temp_ctrl.current_temp
+        else:
+            tc_setpoint = tc_current = nan
+
+        def fmt(v):
+            return "NaN" if v != v else f"{v:.2f}"  # NaN != NaN is True
+
         try:
             log_dir = self._get_log_path()
             os.makedirs(log_dir, exist_ok=True)
@@ -109,9 +136,19 @@ class THPController(QObject):
             write_header = not os.path.exists(filepath)
             with open(filepath, "a") as f:
                 if write_header:
-                    f.write("timestamp,temperature_C,humidity_percent,pressure_hPa\n")
+                    f.write(
+                        "timestamp,"
+                        "temperature_C,humidity_percent,pressure_hPa,"
+                        "ac_temperature_C,ac_heater_setpoint_C,ac_cooling_setpoint_C,"
+                        "tc_setpoint_C,tc_current_C\n"
+                    )
                 ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                f.write(f"{ts},{data['temperature']:.2f},{data['humidity']:.2f},{data['pressure']:.2f}\n")
+                f.write(
+                    f"{ts},"
+                    f"{data['temperature']:.2f},{data['humidity']:.2f},{data['pressure']:.2f},"
+                    f"{fmt(ac_temp)},{fmt(ac_heater)},{fmt(ac_cooling)},"
+                    f"{fmt(tc_setpoint)},{fmt(tc_current)}\n"
+                )
         except Exception as e:
             print(f"Failed to log THP reading: {e}")
 
