@@ -88,7 +88,7 @@ class MainWindow(QMainWindow):
         self.thp_temps = []
         self.hums = []
         self.pressures = []
-        self.current_position = None
+        self.current_position = 0  # default: lid CLOSED
         self.was_raining = False
         self.already_sent_mail = False
         
@@ -112,17 +112,8 @@ class MainWindow(QMainWindow):
         self.rain_timer.timeout.connect(self.check_rain_status)
         self.rain_timer.start(1000)
         
-        # Initial rain check
-        try:
-            success, message = self.motor_ctrl.driver.check_rain_status()
-            if success and "Raining" in message:
-                self.status.showMessage("Startup: It's raining → keeping head closed")
-                self.close_motor()
-            else:
-                self.status.showMessage("Startup: Not raining → auto-opening head")
-                self.open_motor()
-        except Exception as e:
-            self.status.showMessage(f"Startup rain check failed: {e}")
+        # Lid starts CLOSED — user must open manually via GUI
+        self.status.showMessage("Startup: Lid closed (open manually when ready)")
         
         # Global styling
         self.setStyleSheet("""
@@ -561,10 +552,23 @@ class MainWindow(QMainWindow):
         self.motor_ctrl.connect()
         motor_group_layout.addWidget(self.motor_ctrl.groupbox)
         
+        # Lid status indicator
+        self.lid_status_label = QLabel("🔒 Lid Status: CLOSED")
+        self.lid_status_label.setStyleSheet("""
+            font-weight: bold;
+            font-size: 18px;
+            color: #FF6B6B;
+            padding: 15px;
+            background-color: rgba(255, 107, 107, 0.15);
+            border-radius: 10px;
+            border: 2px solid rgba(255, 107, 107, 0.3);
+        """)
+        motor_group_layout.addWidget(self.lid_status_label)
+
         self.rain_indicator = QLabel("🌦️ Rain: Unknown")
         self.rain_indicator.setStyleSheet("""
-            font-weight: bold; 
-            font-size: 18px; 
+            font-weight: bold;
+            font-size: 18px;
             color: #a0a8b8;
             padding: 15px;
             background-color: #252b38;
@@ -669,6 +673,7 @@ class MainWindow(QMainWindow):
         self.motor_ctrl.angle_input.setText("-2100")
         self.motor_ctrl.move()
         self.current_position = 90
+        self._update_lid_status()
         self.status.showMessage("Opening - Moving to -2100")
 
     def close_motor(self):
@@ -679,7 +684,33 @@ class MainWindow(QMainWindow):
         self.motor_ctrl.angle_input.setText("-30")
         self.motor_ctrl.move()
         self.current_position = 0
+        self._update_lid_status()
         self.status.showMessage("Closing - Moving to -30")
+
+    def _update_lid_status(self):
+        """Update the lid status indicator based on current_position."""
+        if self.current_position == 90:
+            self.lid_status_label.setText("🔓 Lid Status: OPEN")
+            self.lid_status_label.setStyleSheet("""
+                font-weight: bold;
+                font-size: 18px;
+                color: #4ECDC4;
+                padding: 15px;
+                background-color: rgba(78, 205, 196, 0.15);
+                border-radius: 10px;
+                border: 2px solid rgba(78, 205, 196, 0.3);
+            """)
+        else:
+            self.lid_status_label.setText("🔒 Lid Status: CLOSED")
+            self.lid_status_label.setStyleSheet("""
+                font-weight: bold;
+                font-size: 18px;
+                color: #FF6B6B;
+                padding: 15px;
+                background-color: rgba(255, 107, 107, 0.15);
+                border-radius: 10px;
+                border: 2px solid rgba(255, 107, 107, 0.3);
+            """)
 
     def send_rain_email(self):
         """Send a single 'it's raining' email."""
@@ -774,10 +805,6 @@ class MainWindow(QMainWindow):
                 border: 2px solid rgba(78, 205, 196, 0.3);
             """)
             self.open_btn.setEnabled(True)
-
-            if self.was_raining:
-                self.status.showMessage("Rain stopped — auto-opening motor")
-                self.open_motor()
 
             self.was_raining = False
             self.already_sent_mail = False
